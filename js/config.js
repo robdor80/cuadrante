@@ -65,3 +65,14 @@ const ALLOWED_EMAILS_NORMALIZED = new Set(ALLOWED_EMAILS.map((email) => normaliz
 export function isEmailAllowed(email) {
   return ALLOWED_EMAILS_NORMALIZED.has(normalizeEmail(email));
 }
+
+// Parte 3: paleta cerrada de colores para el perfil.
+// En esta fase se permiten colores repetidos entre usuarios.
+export const PROFILE_COLOR_OPTIONS = Object.freeze([
+  { value: '#1d4ed8', label: 'Azul' },
+  { value: '#b91c1c', label: 'Rojo' },
+  { value: '#c2410c', label: 'Naranja' },
+  { value: '#15803d', label: 'Verde' },
+  { value: '#7e22ce', label: 'Morado' },
+  { value: '#0f766e', label: 'Turquesa' },
+]);

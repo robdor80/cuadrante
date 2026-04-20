@@ -8,43 +8,54 @@ Proyecto web en HTML + CSS + JavaScript vanilla para GitHub Pages (sin build).
 - `#/login`
 - `#/calendario`
 
-## Dominio base
+## Estado actual
 
-- `anchorDate = 2026-04-18`
-- Patron de 12 dias: ma\u00f1ana x2, tarde x2, noche x2, libre x6
-- Estado diario: `VOY | NO_VOY | VIALIA`
-- `VIALIA` es estado explicito, no ausencia ni booleano
-
-## Parte 2 (Auth + whitelist)
-
-Se ha integrado:
-
+### Parte 2
 - Login con Google (`signInWithPopup`)
 - Sesion persistente local (Firebase Auth)
-- Whitelist local de emails en `js/config.js`
-- Proteccion de `#/calendario` (si no hay sesion valida, redirige a `#/login`)
-- Acceso denegado visible en `#/login` cuando el email no esta autorizado
+- Whitelist local en `js/config.js`
+- Acceso denegado en `#/login` para emails no permitidos
 
-### Donde poner tus datos reales
+### Parte 3
+- Alta inicial de perfil para usuario autenticado sin perfil
+- Campos de alta: `name` + `color` (paleta cerrada)
+- Asignacion automatica al primer slot libre `1..6`
+- Persistencia en Firestore (`users` + `slots`)
+- Reutilizacion de perfil en accesos posteriores
+- Si no hay slots libres: mensaje claro de turno completo
 
-1. Firebase config:
-   - Edita `FIREBASE_CONFIG` en `js/config.js`.
-2. Emails permitidos:
-   - Edita `ALLOWED_EMAILS` en `js/config.js`.
-   - Sustituye los placeholders por tus correos reales.
+## Configuracion principal
 
-## Pasos en Firebase Console
+### Firebase + whitelist
+Editar en `js/config.js`:
+- `FIREBASE_CONFIG`
+- `ALLOWED_EMAILS`
 
-1. En Firebase Console crea/usa tu proyecto.
-2. En `Authentication > Sign-in method`, habilita `Google`.
-3. En `Authentication > Settings > Authorized domains`, anade:
-   - `localhost` (pruebas locales)
-   - `robdor80.github.io` (GitHub Pages)
-4. En `Project settings > General > Your apps > Web app`, copia la config y pegala en `FIREBASE_CONFIG`.
+### Paleta de colores de perfil
+Tambien en `js/config.js`:
+- `PROFILE_COLOR_OPTIONS`
+
+## Firestore esperado
+
+Colecciones usadas:
+- `users/{uid}`
+- `slots/{slotId}` con ids `'1'..'6'`
+
+Notas:
+- `slots` se inicializa automaticamente desde codigo si faltan documentos.
+- La asignacion de slot se hace en transaccion para evitar condiciones de carrera.
+
+## Firebase Console (manual)
+
+1. `Authentication > Sign-in method`: habilitar Google.
+2. `Authentication > Settings > Authorized domains`: anadir
+   - `localhost`
+   - `robdor80.github.io`
+3. `Firestore Database`: crear base en modo prueba o con reglas acordes para esta fase.
 
 ## GitHub Pages
 
-- Configurar en `Settings > Pages`:
+- `Settings > Pages`
   - Source: `Deploy from branch`
   - Branch: `main`
   - Folder: `/ (root)`
