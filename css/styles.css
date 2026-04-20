@@ -165,6 +165,22 @@ h1 {
   padding: 4px;
 }
 
+.calendar-day.tone-libre {
+  background: linear-gradient(180deg, #ffffff 0%, #e9fbe9 100%);
+}
+
+.calendar-day.tone-manana {
+  background: linear-gradient(180deg, #ffffff 0%, #e8f2ff 100%);
+}
+
+.calendar-day.tone-tarde {
+  background: linear-gradient(180deg, #ffffff 0%, #fff0e2 100%);
+}
+
+.calendar-day.tone-noche {
+  background: linear-gradient(180deg, #ffffff 0%, #ffe8e8 100%);
+}
+
 .calendar-cell-empty {
   background: #f7fafc;
   border-style: dashed;
@@ -182,14 +198,28 @@ h1 {
   line-height: 1.1;
 }
 
-.calendar-day-meta {
-  margin: 3px 0;
-  font-size: 0.62rem;
-  line-height: 1.2;
+.calendar-markers {
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
 }
 
-.calendar-day-meta--date {
-  display: none;
+.marker {
+  color: var(--marker-color, #1f2937);
+  font-size: 0.85rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+
+.marker-no-voy {
+  transform: translateY(-1px);
+}
+
+.marker-vialia {
+  font-size: 0.72rem;
 }
 
 @media (max-width: 359px) {
@@ -206,6 +236,14 @@ h1 {
 
   .calendar-day-number {
     font-size: 0.95rem;
+  }
+
+  .marker {
+    font-size: 0.76rem;
+  }
+
+  .marker-vialia {
+    font-size: 0.64rem;
   }
 
   .badge {
@@ -229,6 +267,7 @@ h1 {
     min-height: 92px;
     padding: 5px;
   }
+
 }
 
 @media (min-width: 600px) {
@@ -261,8 +300,12 @@ h1 {
     font-size: 1.2rem;
   }
 
-  .calendar-day-meta {
-    font-size: 0.68rem;
+  .marker {
+    font-size: 0.95rem;
+  }
+
+  .marker-vialia {
+    font-size: 0.78rem;
   }
 
   .badge {
@@ -284,14 +327,6 @@ h1 {
     min-height: 122px;
     padding: 8px;
     border-radius: 12px;
-  }
-
-  .calendar-day-meta--date {
-    display: block;
-  }
-
-  .calendar-day-meta {
-    font-size: 0.74rem;
   }
 
   .badge {

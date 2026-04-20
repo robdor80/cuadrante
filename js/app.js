@@ -1,4 +1,12 @@
-﻿import { APP_NAME, DailyStatus, ROUTES, SHIFT_PATTERN, SHIFT_TIMEZONE, SLOT_COUNT } from './config.js';
+﻿import {
+  APP_NAME,
+  DAILY_STATUS_MARKERS,
+  DailyStatus,
+  ROUTES,
+  SHIFT_PATTERN,
+  SHIFT_TIMEZONE,
+  SLOT_COUNT,
+} from './config.js';
 import { initFirebase, isFirebaseConfigured } from './firebase.js';
 import { createHashRouter } from './router.js';
 import { getMonthAssignments } from './shiftCycle.js';
@@ -31,6 +39,7 @@ function renderHome() {
         <span class="badge noche">noche</span>
         <span class="badge libre">libre</span>
       </div>
+      <p class="muted">En calendario movil: solo se muestran marcadores cuando exista una marca.</p>
     </section>
   `;
 }
@@ -46,17 +55,29 @@ function renderLogin() {
   `;
 }
 
-function toShiftClass(shiftKind) {
+function toShiftToneClass(shiftKind) {
   switch (shiftKind) {
     case 'ma\u00f1ana':
-      return 'manana';
+      return 'tone-manana';
     case 'tarde':
-      return 'tarde';
+      return 'tone-tarde';
     case 'noche':
-      return 'noche';
+      return 'tone-noche';
     default:
-      return 'libre';
+      return 'tone-libre';
   }
+}
+
+function getDayMarkers(dateKey) {
+  const markers = DAILY_STATUS_MARKERS[dateKey];
+  if (!markers) {
+    return { noVoy: [], vialia: [] };
+  }
+
+  return {
+    noVoy: Array.isArray(markers.noVoy) ? markers.noVoy : [],
+    vialia: Array.isArray(markers.vialia) ? markers.vialia : [],
+  };
 }
 
 function getWeekdayIndex(dateKey) {
@@ -90,16 +111,28 @@ function renderCalendar() {
   const todayKey = getTodayKey();
 
   const dayCells = days
-    .map(
-      ({ dateKey, shiftKind, cycleDay }) => `
-        <article class="calendar-day ${dateKey === todayKey ? 'is-today' : ''}">
+    .map(({ dateKey, shiftKind, cycleDay }) => {
+      const { noVoy, vialia } = getDayMarkers(dateKey);
+      const noVoyMarkers = noVoy
+        .map((color) => `<span class="marker marker-no-voy" style="--marker-color:${color}">·</span>`)
+        .join('');
+      const vialiaMarkers = vialia
+        .map((color) => `<span class="marker marker-vialia" style="--marker-color:${color}">·V</span>`)
+        .join('');
+      const markersBlock = noVoyMarkers || vialiaMarkers
+        ? `<div class="calendar-markers">${noVoyMarkers}${vialiaMarkers}</div>`
+        : '';
+
+      return `
+        <article
+          class="calendar-day ${toShiftToneClass(shiftKind)} ${dateKey === todayKey ? 'is-today' : ''}"
+          title="Dia ${getDayNumber(dateKey)} | ciclo ${cycleDay}/12"
+        >
           <p class="calendar-day-number">${getDayNumber(dateKey)}</p>
-          <p class="muted calendar-day-meta calendar-day-meta--date">${dateKey}</p>
-          <p class="muted calendar-day-meta calendar-day-meta--cycle">Dia ${cycleDay}/12</p>
-          <span class="badge ${toShiftClass(shiftKind)}">${shiftKind}</span>
+          ${markersBlock}
         </article>
-      `,
-    )
+      `;
+    })
     .join('');
 
   const totalCells = firstWeekdayIndex + days.length;
@@ -121,7 +154,7 @@ function renderCalendar() {
         <div class="calendar-weekdays">${weekdayHeaders}</div>
         <div class="calendar-month-grid">${leadingEmptyCells}${dayCells}${trailingEmptyCells}</div>
       </div>
-      <p class="muted">Estado diario (VOY/NO_VOY/VIALIA) y persistencia se implementaran despues.</p>
+      <p class="muted">En movil: numero de dia y marcadores solo cuando haya estados.</p>
     </section>
   `;
 }

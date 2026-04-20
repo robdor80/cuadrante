@@ -32,6 +32,11 @@ export const DailyStatus = Object.freeze({
   VIALIA: 'VIALIA',
 });
 
+// Parte 1: marcador visual por dia para NO_VOY y VIALIA.
+// Formato previsto:
+// 'YYYY-MM-DD': { noVoy: ['#hexColor', ...], vialia: ['#hexColor', ...] }
+export const DAILY_STATUS_MARKERS = Object.freeze({});
+
 // Parte 1: solo configuracion base. Se completara en fases posteriores.
 export const FIREBASE_CONFIG = Object.freeze({
   apiKey: '',
