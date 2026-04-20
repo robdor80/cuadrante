@@ -12,18 +12,18 @@ export const SHIFT_TIMEZONE = 'Europe/Madrid';
 export const ANCHOR_DATE = '2026-04-18';
 
 export const SHIFT_PATTERN = Object.freeze([
-  'MORNING',
-  'MORNING',
-  'AFTERNOON',
-  'AFTERNOON',
-  'NIGHT',
-  'NIGHT',
-  'OFF',
-  'OFF',
-  'OFF',
-  'OFF',
-  'OFF',
-  'OFF',
+  'mañana',
+  'mañana',
+  'tarde',
+  'tarde',
+  'noche',
+  'noche',
+  'libre',
+  'libre',
+  'libre',
+  'libre',
+  'libre',
+  'libre',
 ]);
 
 export const DailyStatus = Object.freeze({
