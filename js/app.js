@@ -1,6 +1,5 @@
 ﻿import {
   APP_NAME,
-  DAILY_STATUS_MARKERS,
   DailyStatus,
   PROFILE_COLOR_OPTIONS,
   ROUTES,
@@ -16,13 +15,14 @@ import {
   initFirebase,
   isAuthReadyForUse,
   isFirebaseConfigured,
+  listActiveProfilesBySlot,
   loadUserProfile,
   observeAuthState,
   signInWithGoogle,
   signOutUser,
 } from './firebase.js';
 import { createHashRouter } from './router.js';
-import { getMonthAssignments } from './shiftCycle.js';
+import { getMonthGrid6x7 } from './shiftCycle.js';
 
 const appRoot = document.getElementById('app');
 const WEEKDAY_LABELS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
@@ -47,6 +47,10 @@ const state = {
     name: '',
     color: DEFAULT_PROFILE_COLOR,
   },
+
+  legendStatus: 'idle',
+  legendUsers: [],
+  legendError: '',
 };
 
 function normalizeRouteFromHash(hashValue) {
@@ -111,6 +115,10 @@ function resetProfileState() {
     name: '',
     color: DEFAULT_PROFILE_COLOR,
   };
+
+  state.legendStatus = 'idle';
+  state.legendUsers = [];
+  state.legendError = '';
 }
 
 function setProfileDraftFromAuthUser(firebaseUser) {
@@ -158,7 +166,7 @@ function renderHomeInfo() {
   appRoot.innerHTML = `
     <section class="panel">
       <h2>Base de ${APP_NAME}</h2>
-      <p class="muted">Parte 3: perfil inicial + color + slot fijo (1..6).</p>
+      <p class="muted">Parte 4: calendario mensual estable (6x7), calculo consolidado y leyenda por slot.</p>
       <ul>
         <li>6 slots fijos: ${SLOT_COUNT}</li>
         <li>Ciclo 12 dias: ${SHIFT_PATTERN.join(' -> ')}</li>
@@ -236,29 +244,6 @@ function getShiftCode(shiftKind) {
   }
 }
 
-function getDayMarkers(dateKey) {
-  const markers = DAILY_STATUS_MARKERS[dateKey];
-  if (!markers) {
-    return { noVoy: [], vialia: [] };
-  }
-
-  return {
-    noVoy: Array.isArray(markers.noVoy) ? markers.noVoy : [],
-    vialia: Array.isArray(markers.vialia) ? markers.vialia : [],
-  };
-}
-
-function getWeekdayIndex(dateKey) {
-  const [year, month, day] = dateKey.split('-').map(Number);
-  const utcDate = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-  const weekDay = utcDate.getUTCDay();
-  return weekDay === 0 ? 6 : weekDay - 1;
-}
-
-function getDayNumber(dateKey) {
-  return Number(dateKey.slice(-2));
-}
-
 function getTodayKey() {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: SHIFT_TIMEZONE,
@@ -268,53 +253,57 @@ function getTodayKey() {
   }).format(new Date());
 }
 
-function renderCalendarGrid() {
-  const { monthLabel, days } = getMonthAssignments(new Date());
-  const firstWeekdayIndex = days.length > 0 ? getWeekdayIndex(days[0].dateKey) : 0;
-  const leadingEmptyCells = Array.from(
-    { length: firstWeekdayIndex },
-    () => '<div class="calendar-cell-empty" aria-hidden="true"></div>',
-  ).join('');
+function buildLegendContent() {
+  if (state.legendStatus === 'loading') {
+    return '<p class="muted legend-status">Cargando integrantes...</p>';
+  }
 
+  if (state.legendStatus === 'error') {
+    return `<p class="muted legend-status">${escapeHtml(state.legendError || 'No se pudo cargar la leyenda.')}</p>`;
+  }
+
+  if (!state.legendUsers.length) {
+    return '<p class="muted legend-status">Aun no hay integrantes activos.</p>';
+  }
+
+  const items = state.legendUsers
+    .map(
+      (user) => `
+        <li class="legend-item">
+          <span class="legend-dot" style="--legend-color:${escapeHtml(user.color || DEFAULT_PROFILE_COLOR)}"></span>
+          <span class="legend-name">${escapeHtml(user.name || user.email || `Slot ${user.slotId}`)}</span>
+        </li>
+      `,
+    )
+    .join('');
+
+  return `<ul class="legend-list">${items}</ul>`;
+}
+
+function renderCalendarGrid() {
+  const { monthLabel, cells } = getMonthGrid6x7(new Date());
   const todayKey = getTodayKey();
 
-  const dayCells = days
-    .map(({ dateKey, shiftKind, cycleDay }) => {
+  const dayCells = cells
+    .map(({ dateKey, dayNumber, isCurrentMonth, shiftKind, cycleDay }) => {
       const shiftToneClass = toShiftToneClass(shiftKind);
       const shiftCode = getShiftCode(shiftKind);
-      const { noVoy, vialia } = getDayMarkers(dateKey);
-      const noVoyMarkers = noVoy
-        .map((color) => `<span class="marker marker-no-voy" style="--marker-color:${color}">·</span>`)
-        .join('');
-      const vialiaMarkers = vialia
-        .map((color) => `<span class="marker marker-vialia" style="--marker-color:${color}">·V</span>`)
-        .join('');
-      const markersBlock =
-        noVoyMarkers || vialiaMarkers
-          ? `<div class="calendar-markers">${noVoyMarkers}${vialiaMarkers}</div>`
-          : '';
+      const outsideClass = isCurrentMonth ? '' : ' calendar-day--outside';
 
       return `
         <article
-          class="calendar-day ${shiftToneClass} ${dateKey === todayKey ? 'is-today' : ''}"
-          title="Dia ${getDayNumber(dateKey)} | ciclo ${cycleDay}/12"
+          class="calendar-day ${shiftToneClass}${outsideClass} ${dateKey === todayKey ? 'is-today' : ''}"
+          title="${escapeHtml(dateKey)} | ciclo ${cycleDay}/12"
         >
           <div class="calendar-day-head">
-            <p class="calendar-day-number">${getDayNumber(dateKey)}</p>
+            <p class="calendar-day-number">${dayNumber}</p>
             <span class="shift-code">${shiftCode}</span>
           </div>
-          ${markersBlock}
+          <div class="calendar-marker-slot" aria-hidden="true"></div>
         </article>
       `;
     })
     .join('');
-
-  const totalCells = firstWeekdayIndex + days.length;
-  const trailingCount = (7 - (totalCells % 7)) % 7;
-  const trailingEmptyCells = Array.from(
-    { length: trailingCount },
-    () => '<div class="calendar-cell-empty" aria-hidden="true"></div>',
-  ).join('');
 
   const weekdayHeaders = WEEKDAY_LABELS.map((label) => {
     const shortLabel = label.charAt(0).toUpperCase();
@@ -326,7 +315,7 @@ function renderCalendarGrid() {
   appRoot.innerHTML = `
     <section class="panel">
       <div class="calendar-header-row">
-        <div>
+        <div class="calendar-header-main">
           <h2>Calendario (${monthLabel})</h2>
           <p class="muted">anchorDate=2026-04-18 | timezone=Europe/Madrid | patron 12 dias.</p>
           <p class="muted">
@@ -341,11 +330,17 @@ function renderCalendarGrid() {
           ${state.isSigningOut ? 'Cerrando...' : 'Cerrar sesion'}
         </button>
       </div>
+
+      <section class="calendar-legend" aria-label="Leyenda de usuarios activos">
+        <p class="legend-title">Integrantes activos (orden por slot)</p>
+        ${buildLegendContent()}
+      </section>
+
       <div class="calendar-shell">
         <div class="calendar-weekdays">${weekdayHeaders}</div>
-        <div class="calendar-month-grid">${leadingEmptyCells}${dayCells}${trailingEmptyCells}</div>
+        <div class="calendar-month-grid">${dayCells}</div>
       </div>
-      <p class="muted">En movil: numero de dia y marcadores solo cuando haya estados.</p>
+      <p class="muted">Las celdas ya reservan espacio para futuros markers de la Parte 5.</p>
     </section>
   `;
 
@@ -538,6 +533,43 @@ function refreshCurrentRoute() {
   renderRoute(getCurrentRoute());
 }
 
+async function refreshLegendUsers({ showLoading = false } = {}) {
+  if (!state.authUser) {
+    state.legendStatus = 'idle';
+    state.legendUsers = [];
+    state.legendError = '';
+    return;
+  }
+
+  const expectedUid = state.authUser.uid;
+
+  if (showLoading || state.legendStatus === 'idle') {
+    state.legendStatus = 'loading';
+    state.legendError = '';
+    refreshCurrentRoute();
+  }
+
+  try {
+    const users = await listActiveProfilesBySlot();
+
+    if (!state.authUser || state.authUser.uid !== expectedUid) {
+      return;
+    }
+
+    state.legendUsers = users;
+    state.legendStatus = 'ready';
+    state.legendError = '';
+  } catch (_error) {
+    if (!state.authUser || state.authUser.uid !== expectedUid) {
+      return;
+    }
+
+    state.legendStatus = 'error';
+    state.legendUsers = [];
+    state.legendError = 'No se pudo cargar la leyenda de integrantes.';
+  }
+}
+
 async function handleGoogleLogin() {
   if (state.isSigningIn) {
     return;
@@ -624,6 +656,7 @@ async function handleProfileSubmit(event) {
     state.profileData = profile;
     state.profileStatus = 'ready';
     state.profileError = '';
+    await refreshLegendUsers({ showLoading: true });
   } catch (error) {
     if (error?.code === 'slots/full') {
       state.profileStatus = 'full';
@@ -647,6 +680,10 @@ async function resolveProfileForAuthenticatedUser(firebaseUser) {
   state.isProfileSaving = false;
   setProfileDraftFromAuthUser(firebaseUser);
 
+  state.legendStatus = 'idle';
+  state.legendUsers = [];
+  state.legendError = '';
+
   const currentRoute = getCurrentRoute();
   if (currentRoute === ROUTES.LOGIN || currentRoute === ROUTES.HOME) {
     goTo(ROUTES.CALENDAR);
@@ -669,9 +706,14 @@ async function resolveProfileForAuthenticatedUser(firebaseUser) {
         name: profile.name || state.profileDraft.name,
         color: profile.color || state.profileDraft.color,
       };
+
+      await refreshLegendUsers({ showLoading: true });
     } else {
       state.profileStatus = 'needs_profile';
       state.profileData = null;
+      state.legendStatus = 'idle';
+      state.legendUsers = [];
+      state.legendError = '';
     }
   } catch (_error) {
     if (token !== state.authFlowToken) {

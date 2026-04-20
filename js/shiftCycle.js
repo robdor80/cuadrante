@@ -1,6 +1,7 @@
-import { ANCHOR_DATE, SHIFT_PATTERN, SHIFT_TIMEZONE } from './config.js';
+﻿import { ANCHOR_DATE, SHIFT_PATTERN, SHIFT_TIMEZONE } from './config.js';
 
 const MILLIS_PER_DAY = 24 * 60 * 60 * 1000;
+const CALENDAR_GRID_SIZE = 42;
 
 function normalizeDateKey(input) {
   if (typeof input === 'string') {
@@ -29,6 +30,17 @@ function dateKeyToEpochDay(dateKey) {
 
 function mod(value, divisor) {
   return ((value % divisor) + divisor) % divisor;
+}
+
+function addDays(baseDate, amount) {
+  const next = new Date(baseDate);
+  next.setDate(next.getDate() + amount);
+  return next;
+}
+
+function getMondayIndex(date) {
+  const weekDay = date.getDay();
+  return weekDay === 0 ? 6 : weekDay - 1;
 }
 
 export function getCycleDayNumber(dateInput) {
@@ -61,5 +73,35 @@ export function getMonthAssignments(referenceDate = new Date()) {
   return {
     monthLabel: firstDay.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }),
     days: result,
+  };
+}
+
+export function getMonthGrid6x7(referenceDate = new Date()) {
+  const year = referenceDate.getFullYear();
+  const month = referenceDate.getMonth();
+  const firstDayOfMonth = new Date(year, month, 1);
+  const monthLabel = firstDayOfMonth.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+
+  const mondayIndex = getMondayIndex(firstDayOfMonth);
+  const gridStart = addDays(firstDayOfMonth, -mondayIndex);
+
+  const cells = [];
+
+  for (let offset = 0; offset < CALENDAR_GRID_SIZE; offset += 1) {
+    const cellDate = addDays(gridStart, offset);
+    const dateKey = normalizeDateKey(cellDate);
+
+    cells.push({
+      dateKey,
+      dayNumber: cellDate.getDate(),
+      isCurrentMonth: cellDate.getMonth() === month,
+      shiftKind: getShiftKindForDate(dateKey),
+      cycleDay: getCycleDayNumber(dateKey),
+    });
+  }
+
+  return {
+    monthLabel,
+    cells,
   };
 }

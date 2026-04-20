@@ -183,6 +183,28 @@ export async function loadUserProfile(uid) {
   return normalizeProfileRecord(profileSnap.data());
 }
 
+export async function listActiveProfilesBySlot() {
+  const db = initFirestore();
+  if (!db) {
+    throw new Error('Firestore no configurado.');
+  }
+
+  const usersSnap = await getDocs(collection(db, 'users'));
+  const users = usersSnap.docs
+    .map((snap) => normalizeProfileRecord(snap.data()))
+    .filter(
+      (profile) =>
+        profile &&
+        profile.uid &&
+        Number.isInteger(profile.slotId) &&
+        profile.slotId >= 1 &&
+        profile.slotId <= SLOT_COUNT,
+    )
+    .sort((a, b) => a.slotId - b.slotId);
+
+  return users;
+}
+
 export async function createUserProfileWithAutoSlot({ uid, email, name, color }) {
   const db = initFirestore();
   if (!db) {
