@@ -37,22 +37,24 @@ export const DailyStatus = Object.freeze({
 // 'YYYY-MM-DD': { noVoy: ['#hexColor', ...], vialia: ['#hexColor', ...] }
 export const DAILY_STATUS_MARKERS = Object.freeze({});
 
-// Parte 1: solo configuracion base. Se completara en fases posteriores.
+// ===============================
+// FIREBASE CONFIG (REAL)
+// ===============================
 export const FIREBASE_CONFIG = Object.freeze({
-  apiKey: '',
-  authDomain: '',
-  projectId: '',
-  storageBucket: '',
-  messagingSenderId: '',
-  appId: '',
+  apiKey: "AIzaSyD4BGJvsVYYo6imLHqNgAMX5y6vnZ7mqt0",
+  authDomain: "cuadrante-99569.firebaseapp.com",
+  projectId: "cuadrante-99569",
+  storageBucket: "cuadrante-99569.firebasestorage.app",
+  messagingSenderId: "970203186839",
+  appId: "1:970203186839:web:7c743dc31aa28aac97cbd2"
 });
 
 // Parte 2: lista blanca temporal local (sin Firestore).
 // Sustituye estos placeholders por los correos reales permitidos.
 export const ALLOWED_EMAILS = Object.freeze([
-  'tu_correo_de_prueba@gmail.com',
+  'rob.dor.80@gmail.com',
   'otro_correo@example.com',
-]);
+].map(e => e.trim().toLowerCase()));
 
 export function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
