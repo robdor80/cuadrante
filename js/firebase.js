@@ -1,4 +1,4 @@
-﻿import { FIREBASE_CONFIG, SLOT_COUNT } from './config.js';
+import { DailyStatus, FIREBASE_CONFIG, SLOT_COUNT } from './config.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';
 import {
   GoogleAuthProvider,
@@ -15,6 +15,7 @@ import {
   getDoc,
   getDocs,
   getFirestore,
+  onSnapshot,
   runTransaction,
   serverTimestamp,
   setDoc,
@@ -26,8 +27,19 @@ let firestoreDb = null;
 let authInitPromise = null;
 let slotsInitPromise = null;
 
+const DAILY_STATUS_MONTHS_COLLECTION = 'daily_status_months';
+const STATUS_PERSISTED_SET = new Set([DailyStatus.NO_VOY, DailyStatus.VIALIA]);
+
 function hasValidConfig() {
   return Object.values(FIREBASE_CONFIG).every((value) => typeof value === 'string' && value.trim() !== '');
+}
+
+function isValidDateKey(value) {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function isValidMonthKey(value) {
+  return typeof value === 'string' && /^\d{4}-\d{2}$/.test(value);
 }
 
 function normalizeProfileRecord(raw) {
@@ -44,6 +56,36 @@ function normalizeProfileRecord(raw) {
     createdAt: raw.createdAt || null,
     updatedAt: raw.updatedAt || null,
   };
+}
+
+function normalizeMonthDays(rawDays) {
+  if (!rawDays || typeof rawDays !== 'object') {
+    return {};
+  }
+
+  const normalized = {};
+
+  for (const [dateKey, dayEntries] of Object.entries(rawDays)) {
+    if (!isValidDateKey(dateKey) || !dayEntries || typeof dayEntries !== 'object') {
+      continue;
+    }
+
+    const normalizedDay = {};
+
+    for (const [uid, status] of Object.entries(dayEntries)) {
+      const safeUid = String(uid || '').trim();
+      if (!safeUid || !STATUS_PERSISTED_SET.has(status)) {
+        continue;
+      }
+      normalizedDay[safeUid] = status;
+    }
+
+    if (Object.keys(normalizedDay).length > 0) {
+      normalized[dateKey] = normalizedDay;
+    }
+  }
+
+  return normalized;
 }
 
 export function initFirebase() {
@@ -295,3 +337,108 @@ export async function createUserProfileWithAutoSlot({ uid, email, name, color })
 
   return normalizeProfileRecord(createdSnap.data());
 }
+
+export function subscribeMonthDailyStatuses(monthKey, onData, onError) {
+  if (!isValidMonthKey(monthKey)) {
+    throw new Error('monthKey invalido. Usa YYYY-MM.');
+  }
+
+  const db = initFirestore();
+  if (!db) {
+    throw new Error('Firestore no configurado.');
+  }
+
+  const monthRef = doc(db, DAILY_STATUS_MONTHS_COLLECTION, monthKey);
+  return onSnapshot(
+    monthRef,
+    (snapshot) => {
+      if (!snapshot.exists()) {
+        onData({
+          monthKey,
+          days: {},
+          updatedAt: null,
+        });
+        return;
+      }
+
+      const raw = snapshot.data() || {};
+      onData({
+        monthKey: isValidMonthKey(raw.monthKey) ? raw.monthKey : monthKey,
+        days: normalizeMonthDays(raw.days),
+        updatedAt: raw.updatedAt || null,
+      });
+    },
+    (error) => {
+      if (typeof onError === 'function') {
+        onError(error);
+      }
+    },
+  );
+}
+
+export async function saveUserDailyStatus({ monthKey, dateKey, uid, status }) {
+  if (!isValidMonthKey(monthKey)) {
+    throw new Error('monthKey invalido. Usa YYYY-MM.');
+  }
+
+  if (!isValidDateKey(dateKey)) {
+    throw new Error('dateKey invalido. Usa YYYY-MM-DD.');
+  }
+
+  if (!dateKey.startsWith(`${monthKey}-`)) {
+    throw new Error('dateKey no corresponde al monthKey enviado.');
+  }
+
+  const safeUid = String(uid || '').trim();
+  if (!safeUid) {
+    throw new Error('uid invalido.');
+  }
+
+  const statusSet = new Set([DailyStatus.VOY, DailyStatus.NO_VOY, DailyStatus.VIALIA]);
+  if (!statusSet.has(status)) {
+    throw new Error('Estado diario invalido.');
+  }
+
+  const db = initFirestore();
+  if (!db) {
+    throw new Error('Firestore no configurado.');
+  }
+
+  const monthRef = doc(db, DAILY_STATUS_MONTHS_COLLECTION, monthKey);
+
+  await runTransaction(db, async (tx) => {
+    const monthSnap = await tx.get(monthRef);
+    const currentDays = monthSnap.exists() ? normalizeMonthDays(monthSnap.data()?.days) : {};
+    const before = JSON.stringify(currentDays);
+    const nextDays = { ...currentDays };
+    const nextDayMap = { ...(nextDays[dateKey] || {}) };
+
+    if (status === DailyStatus.VOY) {
+      delete nextDayMap[safeUid];
+    } else {
+      nextDayMap[safeUid] = status;
+    }
+
+    if (Object.keys(nextDayMap).length === 0) {
+      delete nextDays[dateKey];
+    } else {
+      nextDays[dateKey] = nextDayMap;
+    }
+
+    const after = JSON.stringify(nextDays);
+    if (before === after) {
+      return;
+    }
+
+    tx.set(
+      monthRef,
+      {
+        monthKey,
+        days: nextDays,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  });
+}
+

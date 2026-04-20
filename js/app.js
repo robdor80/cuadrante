@@ -1,4 +1,4 @@
-﻿import {
+import {
   APP_NAME,
   DailyStatus,
   PROFILE_COLOR_OPTIONS,
@@ -18,8 +18,10 @@ import {
   listActiveProfilesBySlot,
   loadUserProfile,
   observeAuthState,
+  saveUserDailyStatus,
   signInWithGoogle,
   signOutUser,
+  subscribeMonthDailyStatuses,
 } from './firebase.js';
 import { createHashRouter } from './router.js';
 import { getMonthGrid6x7 } from './shiftCycle.js';
@@ -29,6 +31,19 @@ const headerActionsRoot = document.getElementById('header-actions');
 const WEEKDAY_LABELS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
 const ROUTE_SET = new Set([ROUTES.HOME, ROUTES.LOGIN, ROUTES.CALENDAR]);
 const DEFAULT_PROFILE_COLOR = PROFILE_COLOR_OPTIONS[0]?.value || '#1d4ed8';
+const MONTH_KEY_REGEX = /^\d{4}-\d{2}$/;
+const DATE_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+const dateKeyFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: SHIFT_TIMEZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+const monthKeyFormatter = new Intl.DateTimeFormat('en-CA', {
+  year: 'numeric',
+  month: '2-digit',
+});
 
 const state = {
   authStatus: 'loading',
@@ -52,6 +67,17 @@ const state = {
   legendStatus: 'idle',
   legendUsers: [],
   legendError: '',
+
+  visibleMonthDate: getMonthStartDate(new Date()),
+  visibleMonthKey: getMonthKeyFromDate(getMonthStartDate(new Date())),
+  selectedDateKey: '',
+  dailyStatusByDate: {},
+  dailyStatusStatus: 'idle',
+  dailyStatusError: '',
+  dailyStatusSaveError: '',
+  isDailyStatusSaving: false,
+  monthListenerKey: '',
+  unsubscribeMonthStatuses: null,
 };
 
 function normalizeRouteFromHash(hashValue) {
@@ -81,6 +107,98 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+function getDateKey(dateValue) {
+  return dateKeyFormatter.format(dateValue);
+}
+
+function getMonthStartDate(dateValue) {
+  return new Date(dateValue.getFullYear(), dateValue.getMonth(), 1);
+}
+
+function getMonthKeyFromDate(dateValue) {
+  return monthKeyFormatter.format(dateValue);
+}
+
+function getMonthKeyFromDateKey(dateKey) {
+  return String(dateKey || '').slice(0, 7);
+}
+
+function parseDateKey(dateKey) {
+  if (!DATE_KEY_REGEX.test(dateKey)) {
+    return null;
+  }
+
+  const [year, month, day] = dateKey.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function addMonths(baseDate, delta) {
+  return new Date(baseDate.getFullYear(), baseDate.getMonth() + delta, 1);
+}
+
+function isDateKeyInVisibleMonth(dateKey) {
+  return DATE_KEY_REGEX.test(dateKey) && getMonthKeyFromDateKey(dateKey) === getMonthKeyFromDate(state.visibleMonthDate);
+}
+
+function getTodayKey() {
+  return getDateKey(new Date());
+}
+
+function getDefaultSelectedDateKeyForVisibleMonth() {
+  const visibleMonthKey = getMonthKeyFromDate(state.visibleMonthDate);
+  const todayKey = getTodayKey();
+
+  if (getMonthKeyFromDateKey(todayKey) === visibleMonthKey) {
+    return todayKey;
+  }
+
+  const year = state.visibleMonthDate.getFullYear();
+  const month = String(state.visibleMonthDate.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}-01`;
+}
+
+function ensureSelectedDateKey() {
+  if (!isDateKeyInVisibleMonth(state.selectedDateKey)) {
+    state.selectedDateKey = getDefaultSelectedDateKeyForVisibleMonth();
+  }
+  return state.selectedDateKey;
+}
+
+function formatSelectedDateLabel(dateKey) {
+  const parsed = parseDateKey(dateKey);
+  if (!parsed) {
+    return 'Dia sin seleccionar';
+  }
+
+  return parsed.toLocaleDateString('es-ES', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+function clearMonthStatusListener() {
+  if (typeof state.unsubscribeMonthStatuses === 'function') {
+    state.unsubscribeMonthStatuses();
+  }
+
+  state.unsubscribeMonthStatuses = null;
+  state.monthListenerKey = '';
+}
+
+function resetCalendarState() {
+  clearMonthStatusListener();
+  state.visibleMonthDate = getMonthStartDate(new Date());
+  state.visibleMonthKey = getMonthKeyFromDate(state.visibleMonthDate);
+  state.selectedDateKey = getDefaultSelectedDateKeyForVisibleMonth();
+  state.dailyStatusByDate = {};
+  state.dailyStatusStatus = 'idle';
+  state.dailyStatusError = '';
+  state.dailyStatusSaveError = '';
+  state.isDailyStatusSaving = false;
+}
+
 function mapAuthErrorMessage(error) {
   if (!error || typeof error !== 'object') {
     return 'No se pudo iniciar sesion con Google.';
@@ -99,12 +217,7 @@ function mapAuthErrorMessage(error) {
 }
 
 function getHeaderUserName() {
-  return (
-    state.profileData?.name ||
-    state.authUser?.displayName ||
-    state.authUser?.email ||
-    'Usuario'
-  );
+  return state.profileData?.name || state.authUser?.displayName || state.authUser?.email || 'Usuario';
 }
 
 function getHeaderUserColor() {
@@ -123,12 +236,12 @@ function renderHeaderActions() {
         <span class="header-user-dot" style="--header-user-color:${escapeHtml(getHeaderUserColor())}"></span>
         <span class="header-user-name">${escapeHtml(getHeaderUserName())}</span>
       </div>
-        <button id="header-logout-btn" class="btn btn-secondary btn-header" type="button" ${
-          state.isSigningOut ? 'disabled' : ''
-        }>
-          ${state.isSigningOut ? 'Cerrando...' : 'Cerrar sesión'}
-        </button>
-      `;
+      <button id="header-logout-btn" class="btn btn-secondary btn-header" type="button" ${
+        state.isSigningOut ? 'disabled' : ''
+      }>
+        ${state.isSigningOut ? 'Cerrando...' : 'Cerrar sesion'}
+      </button>
+    `;
 
     const headerLogoutButton = document.getElementById('header-logout-btn');
     if (headerLogoutButton) {
@@ -154,10 +267,14 @@ function resetProfileState() {
   state.legendStatus = 'idle';
   state.legendUsers = [];
   state.legendError = '';
+
+  resetCalendarState();
 }
 
 function setProfileDraftFromAuthUser(firebaseUser) {
-  const displayName = String(firebaseUser?.displayName || '').trim().slice(0, 24);
+  const displayName = String(firebaseUser?.displayName || '')
+    .trim()
+    .slice(0, 24);
   if (displayName && !state.profileDraft.name) {
     state.profileDraft.name = displayName;
   }
@@ -201,7 +318,7 @@ function renderHomeInfo() {
   appRoot.innerHTML = `
     <section class="panel">
       <h2>Base de ${APP_NAME}</h2>
-      <p class="muted">Parte 4: calendario mensual estable (6x7), calculo consolidado y leyenda por slot.</p>
+      <p class="muted">Parte 5: estados diarios por usuario, realtime por mes visible y markers en calendario.</p>
       <ul>
         <li>6 slots fijos: ${SLOT_COUNT}</li>
         <li>Ciclo 12 dias: ${SHIFT_PATTERN.join(' -> ')}</li>
@@ -279,15 +396,6 @@ function getShiftCode(shiftKind) {
   }
 }
 
-function getTodayKey() {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: SHIFT_TIMEZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-}
-
 function buildLegendContent() {
   if (state.legendStatus === 'loading') {
     return '<p class="muted legend-status">Cargando integrantes...</p>';
@@ -315,26 +423,123 @@ function buildLegendContent() {
   return `<ul class="legend-list">${items}</ul>`;
 }
 
+function getStatusByUidForDate(dateKey) {
+  const dayMap = state.dailyStatusByDate?.[dateKey];
+  if (!dayMap || typeof dayMap !== 'object') {
+    return {};
+  }
+  return dayMap;
+}
+
+function getCurrentUserStatusForSelectedDate() {
+  if (!state.authUser || !state.selectedDateKey) {
+    return DailyStatus.VOY;
+  }
+
+  const dayMap = getStatusByUidForDate(state.selectedDateKey);
+  const status = dayMap[state.authUser.uid];
+  if (status === DailyStatus.NO_VOY || status === DailyStatus.VIALIA) {
+    return status;
+  }
+
+  return DailyStatus.VOY;
+}
+
+function getUserByUidMap() {
+  return new Map(state.legendUsers.map((user) => [user.uid, user]));
+}
+
+function getDayMarkers(dateKey) {
+  const dayMap = getStatusByUidForDate(dateKey);
+  const userByUid = getUserByUidMap();
+
+  return Object.entries(dayMap)
+    .filter(([, status]) => status === DailyStatus.NO_VOY || status === DailyStatus.VIALIA)
+    .map(([uid, status]) => {
+      const user = userByUid.get(uid);
+      return {
+        uid,
+        status,
+        slotId: Number.isInteger(user?.slotId) ? user.slotId : 999,
+        color: user?.color || DEFAULT_PROFILE_COLOR,
+        label: user?.name || user?.email || uid,
+      };
+    })
+    .sort((a, b) => a.slotId - b.slotId || a.uid.localeCompare(b.uid));
+}
+
+function buildMarkersHtml(dateKey) {
+  const markers = getDayMarkers(dateKey);
+  if (!markers.length) {
+    return '';
+  }
+
+  return markers
+    .map((marker) => {
+      if (marker.status === DailyStatus.VIALIA) {
+        return `
+          <span class="day-marker day-marker--vialia" style="--marker-color:${escapeHtml(marker.color)}" title="${escapeHtml(
+            marker.label,
+          )}: Vialia">&middot;V</span>
+        `;
+      }
+
+      return `
+        <span class="day-marker day-marker--novoy" style="--marker-color:${escapeHtml(marker.color)}" title="${escapeHtml(
+          marker.label,
+        )}: No va">&middot;</span>
+      `;
+    })
+    .join('');
+}
+
+function getDailyStatusInfoHtml() {
+  if (state.dailyStatusStatus === 'loading') {
+    return '<p class="muted daily-status-info">Cargando estados del mes...</p>';
+  }
+
+  if (state.dailyStatusStatus === 'error') {
+    return `<p class="auth-message auth-message--error">${escapeHtml(
+      state.dailyStatusError || 'No se pudieron cargar los estados del mes.',
+    )}</p>`;
+  }
+
+  if (state.dailyStatusSaveError) {
+    return `<p class="auth-message auth-message--error">${escapeHtml(state.dailyStatusSaveError)}</p>`;
+  }
+
+  return '<p class="muted daily-status-info">Haz clic en un dia del mes para editar tu estado.</p>';
+}
+
 function renderCalendarGrid() {
-  const { monthLabel, cells } = getMonthGrid6x7(new Date());
+  ensureSelectedDateKey();
+
+  const { monthLabel, cells } = getMonthGrid6x7(state.visibleMonthDate);
   const todayKey = getTodayKey();
+  const selectedStatus = getCurrentUserStatusForSelectedDate();
 
   const dayCells = cells
     .map(({ dateKey, dayNumber, isCurrentMonth, shiftKind, cycleDay }) => {
       const shiftToneClass = toShiftToneClass(shiftKind);
       const shiftCode = getShiftCode(shiftKind);
       const outsideClass = isCurrentMonth ? '' : ' calendar-day--outside';
+      const selectedClass = state.selectedDateKey === dateKey && isCurrentMonth ? ' is-selected' : '';
+      const markerHtml = buildMarkersHtml(dateKey);
 
       return `
         <article
-          class="calendar-day ${shiftToneClass}${outsideClass} ${dateKey === todayKey ? 'is-today' : ''}"
+          class="calendar-day ${shiftToneClass}${outsideClass}${selectedClass} ${dateKey === todayKey ? 'is-today' : ''}"
           title="${escapeHtml(dateKey)} | ciclo ${cycleDay}/12"
+          data-date-key="${escapeHtml(dateKey)}"
+          data-current-month="${isCurrentMonth ? '1' : '0'}"
+          role="button"
+          tabindex="${isCurrentMonth ? '0' : '-1'}"
         >
           <div class="calendar-day-head">
             <p class="calendar-day-number">${dayNumber}</p>
             <span class="shift-code">${shiftCode}</span>
           </div>
-          <div class="calendar-marker-slot" aria-hidden="true"></div>
+          <div class="calendar-marker-slot" aria-label="Marcadores del dia">${markerHtml}</div>
         </article>
       `;
     })
@@ -345,11 +550,18 @@ function renderCalendarGrid() {
     return `<div class="calendar-weekday" data-short="${shortLabel}">${label}</div>`;
   }).join('');
 
+  const selectedDateLabel = formatSelectedDateLabel(state.selectedDateKey);
+
   appRoot.innerHTML = `
     <section class="panel">
       <div class="calendar-header-row">
         <div class="calendar-header-main">
-          <h2>Calendario (${monthLabel})</h2>
+          <div class="month-nav">
+            <button id="month-prev-btn" type="button" class="btn btn-secondary btn-month-nav" aria-label="Mes anterior">&lsaquo;</button>
+            <h2>Calendario (${monthLabel})</h2>
+            <button id="month-next-btn" type="button" class="btn btn-secondary btn-month-nav" aria-label="Mes siguiente">&rsaquo;</button>
+          </div>
+          ${getDailyStatusInfoHtml()}
         </div>
       </div>
 
@@ -358,13 +570,83 @@ function renderCalendarGrid() {
         ${buildLegendContent()}
       </section>
 
+      <section class="day-status-editor" aria-label="Editor de estado diario">
+        <p class="day-status-editor__title">Fecha seleccionada: <strong>${escapeHtml(selectedDateLabel)}</strong></p>
+        <div class="day-status-editor__actions">
+          <button
+            type="button"
+            class="btn btn-secondary btn-status ${selectedStatus === DailyStatus.VOY ? 'is-active' : ''}"
+            data-status-action="${DailyStatus.VOY}"
+            ${state.isDailyStatusSaving ? 'disabled' : ''}
+          >
+            VOY
+          </button>
+          <button
+            type="button"
+            class="btn btn-secondary btn-status ${selectedStatus === DailyStatus.NO_VOY ? 'is-active' : ''}"
+            data-status-action="${DailyStatus.NO_VOY}"
+            ${state.isDailyStatusSaving ? 'disabled' : ''}
+          >
+            NO_VOY
+          </button>
+          <button
+            type="button"
+            class="btn btn-secondary btn-status ${selectedStatus === DailyStatus.VIALIA ? 'is-active' : ''}"
+            data-status-action="${DailyStatus.VIALIA}"
+            ${state.isDailyStatusSaving ? 'disabled' : ''}
+          >
+            VIALIA
+          </button>
+        </div>
+        ${state.isDailyStatusSaving ? '<p class="muted daily-status-info">Guardando estado...</p>' : ''}
+      </section>
+
       <div class="calendar-shell">
         <div class="calendar-weekdays">${weekdayHeaders}</div>
         <div class="calendar-month-grid">${dayCells}</div>
       </div>
-      <p class="muted">Las celdas ya reservan espacio para futuros markers de la Parte 5.</p>
     </section>
   `;
+
+  const prevButton = document.getElementById('month-prev-btn');
+  if (prevButton) {
+    prevButton.addEventListener('click', () => handleMonthNavigation(-1));
+  }
+
+  const nextButton = document.getElementById('month-next-btn');
+  if (nextButton) {
+    nextButton.addEventListener('click', () => handleMonthNavigation(1));
+  }
+
+  const statusButtons = document.querySelectorAll('[data-status-action]');
+  statusButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      handleStatusUpdate(String(button.dataset.statusAction || ''));
+    });
+  });
+
+  const dayCards = document.querySelectorAll('.calendar-day[data-date-key]');
+  dayCards.forEach((card) => {
+    const onSelect = () => {
+      const dateKey = String(card.dataset.dateKey || '');
+      const isCurrentMonth = String(card.dataset.currentMonth || '') === '1';
+      if (!isCurrentMonth || !DATE_KEY_REGEX.test(dateKey)) {
+        return;
+      }
+
+      state.selectedDateKey = dateKey;
+      state.dailyStatusSaveError = '';
+      refreshCurrentRoute();
+    };
+
+    card.addEventListener('click', onSelect);
+    card.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        onSelect();
+      }
+    });
+  });
 }
 
 function renderProfileSetup() {
@@ -414,7 +696,6 @@ function renderProfileSetup() {
   if (profileForm) {
     profileForm.addEventListener('submit', handleProfileSubmit);
   }
-
 }
 
 function renderProfileFull() {
@@ -439,7 +720,6 @@ function renderProfileFull() {
       refreshCurrentRoute();
     });
   }
-
 }
 
 function renderProfileError() {
@@ -463,7 +743,59 @@ function renderProfileError() {
       }
     });
   }
+}
 
+function ensureMonthListenerForVisibleMonth() {
+  if (state.authStatus !== 'authenticated' || state.profileStatus !== 'ready' || !state.authUser) {
+    return;
+  }
+
+  const monthKey = getMonthKeyFromDate(state.visibleMonthDate);
+  state.visibleMonthKey = monthKey;
+
+  if (state.monthListenerKey === monthKey && typeof state.unsubscribeMonthStatuses === 'function') {
+    return;
+  }
+
+  clearMonthStatusListener();
+  state.monthListenerKey = monthKey;
+  state.dailyStatusByDate = {};
+  state.dailyStatusStatus = 'loading';
+  state.dailyStatusError = '';
+  state.dailyStatusSaveError = '';
+
+  try {
+    state.unsubscribeMonthStatuses = subscribeMonthDailyStatuses(
+      monthKey,
+      (payload) => {
+        const currentMonthKey = getMonthKeyFromDate(state.visibleMonthDate);
+        if (currentMonthKey !== monthKey) {
+          return;
+        }
+
+        state.dailyStatusByDate = payload?.days && typeof payload.days === 'object' ? payload.days : {};
+        state.dailyStatusStatus = 'ready';
+        state.dailyStatusError = '';
+        ensureSelectedDateKey();
+        refreshCurrentRoute();
+      },
+      () => {
+        const currentMonthKey = getMonthKeyFromDate(state.visibleMonthDate);
+        if (currentMonthKey !== monthKey) {
+          return;
+        }
+
+        state.dailyStatusByDate = {};
+        state.dailyStatusStatus = 'error';
+        state.dailyStatusError = 'No se pudieron escuchar los estados en tiempo real para este mes.';
+        refreshCurrentRoute();
+      },
+    );
+  } catch (_error) {
+    state.dailyStatusByDate = {};
+    state.dailyStatusStatus = 'error';
+    state.dailyStatusError = 'No se pudo iniciar el listener del mes visible.';
+  }
 }
 
 function renderCalendar() {
@@ -491,6 +823,7 @@ function renderCalendar() {
       renderProfileError();
       return;
     case 'ready':
+      ensureMonthListenerForVisibleMonth();
       renderCalendarGrid();
       return;
     default:
@@ -613,6 +946,52 @@ async function handleLogout() {
   }
 }
 
+function handleMonthNavigation(delta) {
+  state.visibleMonthDate = addMonths(state.visibleMonthDate, delta);
+  state.visibleMonthKey = getMonthKeyFromDate(state.visibleMonthDate);
+  state.selectedDateKey = getDefaultSelectedDateKeyForVisibleMonth();
+  state.dailyStatusSaveError = '';
+  ensureMonthListenerForVisibleMonth();
+  refreshCurrentRoute();
+}
+
+async function handleStatusUpdate(status) {
+  if (state.isDailyStatusSaving) {
+    return;
+  }
+
+  if (!state.authUser || !state.selectedDateKey || !DATE_KEY_REGEX.test(state.selectedDateKey)) {
+    return;
+  }
+
+  if (![DailyStatus.VOY, DailyStatus.NO_VOY, DailyStatus.VIALIA].includes(status)) {
+    return;
+  }
+
+  const monthKey = getMonthKeyFromDateKey(state.selectedDateKey);
+  if (!MONTH_KEY_REGEX.test(monthKey)) {
+    return;
+  }
+
+  state.isDailyStatusSaving = true;
+  state.dailyStatusSaveError = '';
+  refreshCurrentRoute();
+
+  try {
+    await saveUserDailyStatus({
+      monthKey,
+      dateKey: state.selectedDateKey,
+      uid: state.authUser.uid,
+      status,
+    });
+  } catch (_error) {
+    state.dailyStatusSaveError = 'No se pudo guardar el estado diario. Intentalo de nuevo.';
+  } finally {
+    state.isDailyStatusSaving = false;
+    refreshCurrentRoute();
+  }
+}
+
 async function handleProfileSubmit(event) {
   event.preventDefault();
 
@@ -651,6 +1030,7 @@ async function handleProfileSubmit(event) {
     state.profileData = profile;
     state.profileStatus = 'ready';
     state.profileError = '';
+    resetCalendarState();
     await refreshLegendUsers({ showLoading: true });
   } catch (error) {
     if (error?.code === 'slots/full') {
@@ -678,6 +1058,8 @@ async function resolveProfileForAuthenticatedUser(firebaseUser) {
   state.legendStatus = 'idle';
   state.legendUsers = [];
   state.legendError = '';
+
+  resetCalendarState();
 
   const currentRoute = getCurrentRoute();
   if (currentRoute === ROUTES.LOGIN || currentRoute === ROUTES.HOME) {
@@ -709,6 +1091,7 @@ async function resolveProfileForAuthenticatedUser(firebaseUser) {
       state.legendStatus = 'idle';
       state.legendUsers = [];
       state.legendError = '';
+      clearMonthStatusListener();
     }
   } catch (_error) {
     if (token !== state.authFlowToken) {
@@ -796,3 +1179,4 @@ async function bootstrap() {
 }
 
 bootstrap();
+
