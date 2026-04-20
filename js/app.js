@@ -142,9 +142,10 @@ function renderCalendar() {
     () => '<div class="calendar-cell-empty" aria-hidden="true"></div>',
   ).join('');
 
-  const weekdayHeaders = WEEKDAY_LABELS.map(
-    (label) => `<div class="calendar-weekday">${label}</div>`,
-  ).join('');
+  const weekdayHeaders = WEEKDAY_LABELS.map((label) => {
+    const shortLabel = label.charAt(0).toUpperCase();
+    return `<div class="calendar-weekday" data-short="${shortLabel}">${label}</div>`;
+  }).join('');
 
   appRoot.innerHTML = `
     <section class="panel">

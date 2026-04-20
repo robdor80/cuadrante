@@ -156,6 +156,21 @@ h1 {
   padding: 6px 2px;
 }
 
+@media (max-width: 599px) and (orientation: portrait) {
+  .calendar-weekday {
+    font-size: 0;
+    letter-spacing: 0;
+  }
+
+  .calendar-weekday::before {
+    content: attr(data-short);
+    font-size: 0.74rem;
+    font-weight: 800;
+    color: var(--muted);
+    line-height: 1;
+  }
+}
+
 .calendar-day,
 .calendar-cell-empty {
   border: 1px solid var(--border);
