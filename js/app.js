@@ -699,12 +699,15 @@ function renderCalendarGrid() {
     .map(({ dateKey, dayNumber, isCurrentMonth, shiftKind, cycleDay }) => {
       const shiftToneClass = toShiftToneClass(shiftKind);
       const shiftCode = getShiftCode(shiftKind);
+      const isWorkShift = shiftKind !== 'libre';
+      const isEditable = isCurrentMonth && isWorkShift;
       const outsideClass = isCurrentMonth ? '' : ' calendar-day--outside';
-      const selectedClass = state.selectedDateKey === dateKey && isCurrentMonth ? ' is-selected' : '';
+      const selectedClass = state.selectedDateKey === dateKey && isEditable ? ' is-selected' : '';
       const markerHtml = buildMarkersHtml(dateKey);
-      const interactiveAttrs = isCurrentMonth
+      const interactiveAttrs = isEditable
         ? 'role="button" tabindex="0"'
         : 'aria-disabled="true" tabindex="-1"';
+      const cursorStyle = isEditable ? 'pointer' : 'default';
 
       return `
         <article
@@ -712,6 +715,8 @@ function renderCalendarGrid() {
           title="${escapeHtml(dateKey)} | ciclo ${cycleDay}/12"
           data-date-key="${escapeHtml(dateKey)}"
           data-current-month="${isCurrentMonth ? '1' : '0'}"
+          data-editable="${isEditable ? '1' : '0'}"
+          style="cursor:${cursorStyle};"
           ${interactiveAttrs}
         >
           <div class="calendar-day-head">
@@ -771,8 +776,8 @@ function renderCalendarGrid() {
   dayCards.forEach((card) => {
     const onSelect = () => {
       const dateKey = String(card.dataset.dateKey || '');
-      const isCurrentMonth = String(card.dataset.currentMonth || '') === '1';
-      if (!isCurrentMonth || !DATE_KEY_REGEX.test(dateKey)) {
+      const isEditable = String(card.dataset.editable || '') === '1';
+      if (!isEditable || !DATE_KEY_REGEX.test(dateKey)) {
         return;
       }
 

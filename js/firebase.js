@@ -430,15 +430,11 @@ export async function saveUserDailyStatus({ monthKey, dateKey, uid, status }) {
       return;
     }
 
-    tx.set(
-      monthRef,
-      {
-        monthKey,
-        days: nextDays,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true },
-    );
+    tx.set(monthRef, {
+      monthKey,
+      days: nextDays,
+      updatedAt: serverTimestamp(),
+    });
   });
 }
 
