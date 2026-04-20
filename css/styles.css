@@ -22,6 +22,10 @@ body {
   color: var(--text);
 }
 
+body.modal-open {
+  overflow: hidden;
+}
+
 .site-header {
   border-bottom: 1px solid var(--border);
   background: var(--surface);
@@ -315,28 +319,6 @@ h1 {
   background: #f9fbfd;
 }
 
-.day-status-editor {
-  margin-top: 10px;
-  padding: 10px;
-  border: 1px solid #dbe4ec;
-  border-radius: 12px;
-  background: #f8fbff;
-}
-
-.day-status-editor__title {
-  margin: 0;
-  font-size: 0.82rem;
-  color: #24425f;
-  text-transform: capitalize;
-}
-
-.day-status-editor__actions {
-  margin-top: 8px;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
 .btn-status {
   width: 100%;
   padding: 7px 8px;
@@ -347,6 +329,168 @@ h1 {
   background: #0d5e89;
   border-color: #0d5e89;
   color: #ffffff;
+}
+
+.day-modal-edit .btn-status:disabled {
+  opacity: 0.48;
+  background: #e5eaf0;
+  border-color: #d2dbe5;
+  color: #70849a;
+}
+
+.day-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(1.5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  animation: modal-fade-in 0.16s ease-out;
+}
+
+.day-modal-card {
+  width: min(720px, 100%);
+  max-height: calc(100vh - 28px);
+  overflow: auto;
+  background: #ffffff;
+  border: 1px solid #dbe4ec;
+  border-radius: 16px;
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.24);
+  padding: 12px;
+  animation: modal-scale-in 0.16s ease-out;
+}
+
+.day-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.day-modal-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  text-transform: capitalize;
+}
+
+.day-modal-shift {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  color: #3d556e;
+}
+
+.btn.btn-modal-close {
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.day-modal-columns {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.day-modal-column {
+  border: 1px solid #dbe4ec;
+  border-radius: 12px;
+  padding: 8px;
+  background: #f9fbfd;
+}
+
+.day-modal-column h4 {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #32506d;
+}
+
+.day-modal-user-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.day-modal-user-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.day-modal-user-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.22);
+  background: var(--modal-user-color, #1d4ed8);
+  flex: 0 0 auto;
+}
+
+.day-modal-user-name {
+  font-size: 0.82rem;
+  color: #243f59;
+}
+
+.day-modal-empty {
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+.day-modal-edit {
+  margin-top: 12px;
+  border: 1px solid #dbe4ec;
+  border-radius: 12px;
+  padding: 10px;
+  background: #f5f9fd;
+}
+
+.day-modal-edit-title {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #24425f;
+}
+
+.day-modal-edit-actions {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.day-modal-hint {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+}
+
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-scale-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .legend-title {
@@ -441,6 +585,14 @@ h1 {
   background: #fff;
   min-height: 86px;
   padding: 4px;
+}
+
+.calendar-day[data-current-month='1'] {
+  cursor: pointer;
+}
+
+.calendar-day[data-current-month='0'] {
+  cursor: default;
 }
 
 .calendar-day.tone-libre {
@@ -601,6 +753,16 @@ h1 {
   .legend-list {
     grid-template-columns: 1fr;
   }
+
+  .day-modal-overlay {
+    padding: 8px;
+  }
+
+  .day-modal-card {
+    max-height: calc(100vh - 16px);
+    border-radius: 12px;
+    padding: 10px;
+  }
 }
 
 @media (orientation: landscape) and (max-width: 900px) {
@@ -681,7 +843,7 @@ h1 {
     min-height: 17px;
   }
 
-  .day-status-editor__title {
+  .day-modal-edit-title {
     font-size: 0.86rem;
   }
 
@@ -724,6 +886,14 @@ h1 {
 
   .calendar-marker-slot {
     min-height: 18px;
+  }
+
+  .day-modal-card {
+    padding: 14px;
+  }
+
+  .day-modal-columns {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
