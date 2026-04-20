@@ -1,4 +1,4 @@
-export const APP_NAME = 'Cuadrante';
+﻿export const APP_NAME = 'Cuadrante';
 export const BASE_PATH = '/cuadrante/';
 
 export const ROUTES = Object.freeze({
@@ -12,8 +12,8 @@ export const SHIFT_TIMEZONE = 'Europe/Madrid';
 export const ANCHOR_DATE = '2026-04-18';
 
 export const SHIFT_PATTERN = Object.freeze([
-  'mañana',
-  'mañana',
+  'ma\u00f1ana',
+  'ma\u00f1ana',
   'tarde',
   'tarde',
   'noche',

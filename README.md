@@ -1,4 +1,4 @@
-# Cuadrante
+﻿# Cuadrante
 
 Parte 1 migrada a HTML + CSS + JavaScript vanilla (sin React, sin Vite, sin TypeScript, sin build).
 
@@ -11,7 +11,7 @@ Parte 1 migrada a HTML + CSS + JavaScript vanilla (sin React, sin Vite, sin Type
 ## Dominio base
 
 - `anchorDate = 2026-04-18`
-- Patron de 12 dias: mañana x2, tarde x2, noche x2, libre x6
+- Patron de 12 dias: ma\u00f1ana x2, tarde x2, noche x2, libre x6
 - Estado diario: `VOY | NO_VOY | VIALIA`
 - `VIALIA` es estado explicito, no ausencia ni booleano
 
