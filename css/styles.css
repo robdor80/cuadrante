@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --bg: #f2f5f8;
   --surface: #ffffff;
   --border: #dbe4ec;
@@ -28,9 +28,13 @@ body {
   margin: 0 auto;
   padding: 12px 16px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
+}
+
+.site-header__title {
+  min-width: 180px;
 }
 
 .eyebrow {
@@ -46,26 +50,42 @@ h1 {
   font-size: 1.2rem;
 }
 
-.nav {
+.site-header__actions {
   display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-height: 36px;
+}
+
+.header-user {
+  display: inline-flex;
+  align-items: center;
   gap: 6px;
+  max-width: 190px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  border: 1px solid #d6e2ee;
+  background: #f5f9fd;
 }
 
-.nav-link {
-  text-decoration: none;
-  color: var(--primary);
-  font-size: 0.9rem;
-  font-weight: 600;
-  padding: 7px 10px;
-  border-radius: 10px;
+.header-user-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  background: var(--header-user-color, #1d4ed8);
+  flex: 0 0 auto;
 }
 
-.nav-link:hover {
-  background: #ecf6ff;
-}
-
-.nav-link.is-active {
-  background: #d8ecff;
+.header-user-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1f3952;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .btn {
@@ -92,6 +112,11 @@ h1 {
   background: #edf3f8;
   border-color: #c8d7e6;
   color: #12314d;
+}
+
+.btn.btn-header {
+  padding: 7px 10px;
+  font-size: 0.82rem;
 }
 
 .main-container {
@@ -236,50 +261,6 @@ h1 {
   vertical-align: middle;
   margin-right: 4px;
   border: 1px solid rgba(0, 0, 0, 0.18);
-}
-
-.badge-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.badge {
-  font-size: 0.68rem;
-  font-weight: 700;
-  border-radius: 6px;
-  padding: 3px 4px;
-  border: 1px solid transparent;
-  text-align: center;
-  width: 100%;
-  display: block;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.badge.manana {
-  background: #fef3c7;
-  border-color: #fde68a;
-  color: #7c4a03;
-}
-
-.badge.tarde {
-  background: #ffedd5;
-  border-color: #fed7aa;
-  color: #9a3412;
-}
-
-.badge.noche {
-  background: #e2e8f0;
-  border-color: #cbd5e1;
-  color: #1e293b;
-}
-
-.badge.libre {
-  background: #d1fae5;
-  border-color: #a7f3d0;
-  color: #065f46;
 }
 
 .calendar-shell {
@@ -432,13 +413,6 @@ h1 {
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
 }
 
-.calendar-day-number {
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 700;
-  line-height: 1.1;
-}
-
 .calendar-day-head {
   display: flex;
   align-items: center;
@@ -446,27 +420,27 @@ h1 {
   gap: 4px;
 }
 
+.calendar-day-number {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
 .shift-code {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
+  min-width: 13px;
+  height: 13px;
+  padding: 0 2px;
   border-radius: 999px;
-  font-size: 0.62rem;
-  font-weight: 800;
-  color: #0f2940;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(15, 41, 64, 0.18);
-}
-
-.calendar-markers {
-  margin-top: 3px;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  flex-wrap: wrap;
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: #64748b;
+  opacity: 0.72;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(100, 116, 139, 0.25);
 }
 
 .calendar-marker-slot {
@@ -477,23 +451,29 @@ h1 {
   background: rgba(255, 255, 255, 0.35);
 }
 
-.marker {
-  color: var(--marker-color, #1f2937);
-  font-size: 0.85rem;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: 0.01em;
-}
-
-.marker-no-voy {
-  transform: translateY(-1px);
-}
-
-.marker-vialia {
-  font-size: 0.72rem;
-}
-
 @media (max-width: 359px) {
+  .site-header__content {
+    padding: 10px 12px;
+  }
+
+  h1 {
+    font-size: 1.08rem;
+  }
+
+  .header-user {
+    max-width: 150px;
+    padding: 4px 7px;
+  }
+
+  .header-user-name {
+    font-size: 0.74rem;
+  }
+
+  .btn.btn-header {
+    font-size: 0.74rem;
+    padding: 6px 8px;
+  }
+
   .calendar-weekday {
     font-size: 0.54rem;
     letter-spacing: 0.02em;
@@ -514,23 +494,14 @@ h1 {
   }
 
   .shift-code {
-    min-width: 14px;
+    min-width: 11px;
+    height: 11px;
+    font-size: 0.46rem;
+    opacity: 0.68;
+  }
+
+  .calendar-marker-slot {
     height: 14px;
-    padding: 0 3px;
-    font-size: 0.56rem;
-  }
-
-  .marker {
-    font-size: 0.76rem;
-  }
-
-  .marker-vialia {
-    font-size: 0.64rem;
-  }
-
-  .badge {
-    font-size: 0.58rem;
-    padding: 2px 2px;
   }
 
   .btn {
@@ -544,6 +515,10 @@ h1 {
 }
 
 @media (orientation: landscape) and (max-width: 900px) {
+  .site-header__content {
+    align-items: center;
+  }
+
   .main-container {
     padding: 10px;
   }
@@ -565,6 +540,22 @@ h1 {
 }
 
 @media (min-width: 600px) {
+  .site-header__content {
+    align-items: center;
+  }
+
+  .header-user {
+    max-width: 220px;
+  }
+
+  .header-user-name {
+    font-size: 0.86rem;
+  }
+
+  .btn.btn-header {
+    font-size: 0.84rem;
+  }
+
   .main-container {
     padding: 14px;
   }
@@ -599,21 +590,14 @@ h1 {
   }
 
   .shift-code {
-    min-width: 18px;
-    height: 18px;
-    font-size: 0.66rem;
+    min-width: 12px;
+    height: 12px;
+    font-size: 0.48rem;
+    opacity: 0.62;
   }
 
-  .marker {
-    font-size: 0.95rem;
-  }
-
-  .marker-vialia {
-    font-size: 0.78rem;
-  }
-
-  .badge {
-    font-size: 0.66rem;
+  .calendar-marker-slot {
+    height: 17px;
   }
 
   .legend-list {
@@ -622,6 +606,15 @@ h1 {
 }
 
 @media (min-width: 820px) {
+  .site-header__content {
+    padding: 14px 16px;
+  }
+
+  .header-user {
+    max-width: 240px;
+    padding: 5px 9px;
+  }
+
   .main-container {
     padding: 16px;
   }
@@ -644,14 +637,13 @@ h1 {
   .calendar-marker-slot {
     height: 18px;
   }
-
-  .badge {
-    font-size: 0.7rem;
-    padding: 3px 5px;
-  }
 }
 
 @media (min-width: 1100px) {
+  .header-user-name {
+    font-size: 0.88rem;
+  }
+
   .calendar-weekdays,
   .calendar-month-grid {
     gap: 8px;
@@ -670,14 +662,15 @@ h1 {
   }
 
   .shift-code {
-    min-width: 20px;
-    height: 20px;
-    font-size: 0.7rem;
+    min-width: 11px;
+    height: 11px;
+    font-size: 0.44rem;
+    opacity: 0.55;
+    background: rgba(255, 255, 255, 0.4);
   }
 
-  .badge {
-    font-size: 0.74rem;
-    padding: 4px 6px;
+  .calendar-marker-slot {
+    height: 19px;
   }
 
   .legend-list {

@@ -25,6 +25,7 @@ import { createHashRouter } from './router.js';
 import { getMonthGrid6x7 } from './shiftCycle.js';
 
 const appRoot = document.getElementById('app');
+const headerActionsRoot = document.getElementById('header-actions');
 const WEEKDAY_LABELS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
 const ROUTE_SET = new Set([ROUTES.HOME, ROUTES.LOGIN, ROUTES.CALENDAR]);
 const DEFAULT_PROFILE_COLOR = PROFILE_COLOR_OPTIONS[0]?.value || '#1d4ed8';
@@ -71,15 +72,6 @@ function goTo(route) {
   window.location.hash = `#${route}`;
 }
 
-function setActiveNav(route) {
-  const links = document.querySelectorAll('[data-route-link]');
-  links.forEach((link) => {
-    const href = link.getAttribute('href') || '';
-    const isActive = href === `#${route}`;
-    link.classList.toggle('is-active', isActive);
-  });
-}
-
 function escapeHtml(value) {
   return String(value)
     .replace(/&/g, '&amp;')
@@ -104,6 +96,53 @@ function mapAuthErrorMessage(error) {
     default:
       return 'Error de autenticacion con Google. Intentalo de nuevo.';
   }
+}
+
+function getHeaderUserName() {
+  return (
+    state.profileData?.name ||
+    state.authUser?.displayName ||
+    state.authUser?.email ||
+    'Usuario'
+  );
+}
+
+function getHeaderUserColor() {
+  return state.profileData?.color || DEFAULT_PROFILE_COLOR;
+}
+
+function renderHeaderActions(route) {
+  if (!headerActionsRoot) {
+    return;
+  }
+
+  if (state.authStatus === 'authenticated') {
+    headerActionsRoot.innerHTML = `
+      <div class="header-user">
+        <span class="header-user-dot" style="--header-user-color:${escapeHtml(getHeaderUserColor())}"></span>
+        <span class="header-user-name">${escapeHtml(getHeaderUserName())}</span>
+      </div>
+      <button id="header-logout-btn" class="btn btn-secondary btn-header" type="button" ${
+        state.isSigningOut ? 'disabled' : ''
+      }>
+        ${state.isSigningOut ? 'Cerrando...' : 'Cerrar sesion'}
+      </button>
+    `;
+
+    const headerLogoutButton = document.getElementById('header-logout-btn');
+    if (headerLogoutButton) {
+      headerLogoutButton.addEventListener('click', handleLogout);
+    }
+    return;
+  }
+
+  if (route !== ROUTES.LOGIN) {
+    headerActionsRoot.innerHTML =
+      '<a class="btn btn-secondary btn-header" href="#/login">Login</a>';
+    return;
+  }
+
+  headerActionsRoot.innerHTML = '';
 }
 
 function resetProfileState() {
@@ -326,9 +365,6 @@ function renderCalendarGrid() {
           </p>
           <p class="muted">Sesion: <strong>${escapeHtml(state.authUser?.email || 'sin email')}</strong></p>
         </div>
-        <button id="logout-btn" class="btn btn-secondary" type="button" ${state.isSigningOut ? 'disabled' : ''}>
-          ${state.isSigningOut ? 'Cerrando...' : 'Cerrar sesion'}
-        </button>
       </div>
 
       <section class="calendar-legend" aria-label="Leyenda de usuarios activos">
@@ -343,11 +379,6 @@ function renderCalendarGrid() {
       <p class="muted">Las celdas ya reservan espacio para futuros markers de la Parte 5.</p>
     </section>
   `;
-
-  const logoutButton = document.getElementById('logout-btn');
-  if (logoutButton) {
-    logoutButton.addEventListener('click', handleLogout);
-  }
 }
 
 function renderProfileSetup() {
@@ -390,10 +421,6 @@ function renderProfileSetup() {
           ${state.isProfileSaving ? 'Guardando...' : 'Completar alta'}
         </button>
       </form>
-
-      <button id="logout-btn" class="btn btn-secondary" type="button" ${state.isSigningOut ? 'disabled' : ''}>
-        ${state.isSigningOut ? 'Cerrando...' : 'Cerrar sesion'}
-      </button>
     </section>
   `;
 
@@ -402,10 +429,6 @@ function renderProfileSetup() {
     profileForm.addEventListener('submit', handleProfileSubmit);
   }
 
-  const logoutButton = document.getElementById('logout-btn');
-  if (logoutButton) {
-    logoutButton.addEventListener('click', handleLogout);
-  }
 }
 
 function renderProfileFull() {
@@ -418,9 +441,6 @@ function renderProfileFull() {
       <p class="muted">Si se libera una plaza, puedes intentar de nuevo.</p>
       <div class="auth-actions">
         <button id="retry-profile-btn" class="btn btn-primary" type="button">Reintentar alta</button>
-        <button id="logout-btn" class="btn btn-secondary" type="button" ${state.isSigningOut ? 'disabled' : ''}>
-          ${state.isSigningOut ? 'Cerrando...' : 'Cerrar sesion'}
-        </button>
       </div>
     </section>
   `;
@@ -434,10 +454,6 @@ function renderProfileFull() {
     });
   }
 
-  const logoutButton = document.getElementById('logout-btn');
-  if (logoutButton) {
-    logoutButton.addEventListener('click', handleLogout);
-  }
 }
 
 function renderProfileError() {
@@ -449,9 +465,6 @@ function renderProfileError() {
       <p class="auth-message auth-message--error">${escapeHtml(message)}</p>
       <div class="auth-actions">
         <button id="retry-profile-load-btn" class="btn btn-primary" type="button">Reintentar</button>
-        <button id="logout-btn" class="btn btn-secondary" type="button" ${state.isSigningOut ? 'disabled' : ''}>
-          ${state.isSigningOut ? 'Cerrando...' : 'Cerrar sesion'}
-        </button>
       </div>
     </section>
   `;
@@ -465,10 +478,6 @@ function renderProfileError() {
     });
   }
 
-  const logoutButton = document.getElementById('logout-btn');
-  if (logoutButton) {
-    logoutButton.addEventListener('click', handleLogout);
-  }
 }
 
 function renderCalendar() {
@@ -505,7 +514,7 @@ function renderCalendar() {
 }
 
 function renderRoute(route) {
-  setActiveNav(route);
+  renderHeaderActions(route);
 
   switch (route) {
     case ROUTES.HOME:
