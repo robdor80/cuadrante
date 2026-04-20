@@ -68,6 +68,19 @@ function toShiftToneClass(shiftKind) {
   }
 }
 
+function getShiftCode(shiftKind) {
+  switch (shiftKind) {
+    case 'ma\u00f1ana':
+      return 'M';
+    case 'tarde':
+      return 'T';
+    case 'noche':
+      return 'N';
+    default:
+      return 'L';
+  }
+}
+
 function getDayMarkers(dateKey) {
   const markers = DAILY_STATUS_MARKERS[dateKey];
   if (!markers) {
@@ -112,6 +125,8 @@ function renderCalendar() {
 
   const dayCells = days
     .map(({ dateKey, shiftKind, cycleDay }) => {
+      const shiftToneClass = toShiftToneClass(shiftKind);
+      const shiftCode = getShiftCode(shiftKind);
       const { noVoy, vialia } = getDayMarkers(dateKey);
       const noVoyMarkers = noVoy
         .map((color) => `<span class="marker marker-no-voy" style="--marker-color:${color}">·</span>`)
@@ -125,10 +140,13 @@ function renderCalendar() {
 
       return `
         <article
-          class="calendar-day ${toShiftToneClass(shiftKind)} ${dateKey === todayKey ? 'is-today' : ''}"
+          class="calendar-day ${shiftToneClass} ${dateKey === todayKey ? 'is-today' : ''}"
           title="Dia ${getDayNumber(dateKey)} | ciclo ${cycleDay}/12"
         >
-          <p class="calendar-day-number">${getDayNumber(dateKey)}</p>
+          <div class="calendar-day-head">
+            <p class="calendar-day-number">${getDayNumber(dateKey)}</p>
+            <span class="shift-code">${shiftCode}</span>
+          </div>
           ${markersBlock}
         </article>
       `;

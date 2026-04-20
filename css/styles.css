@@ -213,6 +213,28 @@ h1 {
   line-height: 1.1;
 }
 
+.calendar-day-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.shift-code {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: #0f2940;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(15, 41, 64, 0.18);
+}
+
 .calendar-markers {
   margin-top: 3px;
   display: flex;
@@ -251,6 +273,13 @@ h1 {
 
   .calendar-day-number {
     font-size: 0.95rem;
+  }
+
+  .shift-code {
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
+    font-size: 0.56rem;
   }
 
   .marker {
@@ -315,6 +344,12 @@ h1 {
     font-size: 1.2rem;
   }
 
+  .shift-code {
+    min-width: 18px;
+    height: 18px;
+    font-size: 0.66rem;
+  }
+
   .marker {
     font-size: 0.95rem;
   }
@@ -362,6 +397,12 @@ h1 {
 
   .calendar-day-number {
     font-size: 1.3rem;
+  }
+
+  .shift-code {
+    min-width: 20px;
+    height: 20px;
+    font-size: 0.7rem;
   }
 
   .badge {
