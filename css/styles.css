@@ -105,25 +105,25 @@ h1 {
   border: 1px solid transparent;
 }
 
-.badge.morning {
+.badge.manana {
   background: #fef3c7;
   border-color: #fde68a;
   color: #7c4a03;
 }
 
-.badge.afternoon {
+.badge.tarde {
   background: #ffedd5;
   border-color: #fed7aa;
   color: #9a3412;
 }
 
-.badge.night {
+.badge.noche {
   background: #e2e8f0;
   border-color: #cbd5e1;
   color: #1e293b;
 }
 
-.badge.off {
+.badge.libre {
   background: #d1fae5;
   border-color: #a7f3d0;
   color: #065f46;
