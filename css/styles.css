@@ -5,6 +5,10 @@
   --text: #14263a;
   --muted: #5b6d80;
   --primary: #0d5e89;
+  --shift-libre-end: #f3f8f4;
+  --shift-manana-end: #dce9ff;
+  --shift-tarde-end: #ffe3cc;
+  --shift-noche-end: #ffd9d9;
 }
 
 * {
@@ -28,46 +32,39 @@ body {
   margin: 0 auto;
   padding: 12px 16px;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
 }
 
 .site-header__title {
-  min-width: 180px;
-}
-
-.eyebrow {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  min-width: 0;
 }
 
 h1 {
-  margin: 2px 0 0;
+  margin: 0;
   font-size: 1.2rem;
+  line-height: 1.2;
 }
 
 .site-header__actions {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 8px;
   flex-wrap: wrap;
-  min-height: 36px;
+}
+
+.site-header__actions--session {
+  justify-content: space-between;
 }
 
 .header-user {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  max-width: 190px;
-  padding: 5px 8px;
-  border-radius: 999px;
-  border: 1px solid #d6e2ee;
-  background: #f5f9fd;
+  max-width: 100%;
+  min-width: 0;
+  flex: 1 1 180px;
 }
 
 .header-user-dot {
@@ -80,7 +77,7 @@ h1 {
 }
 
 .header-user-name {
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   font-weight: 700;
   color: #1f3952;
   overflow: hidden;
@@ -383,19 +380,19 @@ h1 {
 }
 
 .calendar-day.tone-libre {
-  background: linear-gradient(180deg, #ffffff 0%, #e9f7eb 100%);
+  background: linear-gradient(180deg, #ffffff 0%, var(--shift-libre-end) 100%);
 }
 
 .calendar-day.tone-manana {
-  background: linear-gradient(180deg, #ffffff 0%, #eaf2ff 100%);
+  background: linear-gradient(180deg, #ffffff 0%, var(--shift-manana-end) 100%);
 }
 
 .calendar-day.tone-tarde {
-  background: linear-gradient(180deg, #ffffff 0%, #fff2e5 100%);
+  background: linear-gradient(180deg, #ffffff 0%, var(--shift-tarde-end) 100%);
 }
 
 .calendar-day.tone-noche {
-  background: linear-gradient(180deg, #ffffff 0%, #ffecec 100%);
+  background: linear-gradient(180deg, #ffffff 0%, var(--shift-noche-end) 100%);
 }
 
 .calendar-day--outside {
@@ -461,8 +458,7 @@ h1 {
   }
 
   .header-user {
-    max-width: 150px;
-    padding: 4px 7px;
+    flex-basis: 140px;
   }
 
   .header-user-name {
@@ -515,10 +511,6 @@ h1 {
 }
 
 @media (orientation: landscape) and (max-width: 900px) {
-  .site-header__content {
-    align-items: center;
-  }
-
   .main-container {
     padding: 10px;
   }
@@ -540,12 +532,8 @@ h1 {
 }
 
 @media (min-width: 600px) {
-  .site-header__content {
-    align-items: center;
-  }
-
   .header-user {
-    max-width: 220px;
+    flex-basis: 230px;
   }
 
   .header-user-name {
@@ -611,8 +599,7 @@ h1 {
   }
 
   .header-user {
-    max-width: 240px;
-    padding: 5px 9px;
+    flex-basis: 260px;
   }
 
   .main-container {

@@ -111,23 +111,24 @@ function getHeaderUserColor() {
   return state.profileData?.color || DEFAULT_PROFILE_COLOR;
 }
 
-function renderHeaderActions(route) {
+function renderHeaderActions() {
   if (!headerActionsRoot) {
     return;
   }
 
   if (state.authStatus === 'authenticated') {
+    headerActionsRoot.classList.add('site-header__actions--session');
     headerActionsRoot.innerHTML = `
       <div class="header-user">
         <span class="header-user-dot" style="--header-user-color:${escapeHtml(getHeaderUserColor())}"></span>
         <span class="header-user-name">${escapeHtml(getHeaderUserName())}</span>
       </div>
-      <button id="header-logout-btn" class="btn btn-secondary btn-header" type="button" ${
-        state.isSigningOut ? 'disabled' : ''
-      }>
-        ${state.isSigningOut ? 'Cerrando...' : 'Cerrar sesion'}
-      </button>
-    `;
+        <button id="header-logout-btn" class="btn btn-secondary btn-header" type="button" ${
+          state.isSigningOut ? 'disabled' : ''
+        }>
+          ${state.isSigningOut ? 'Cerrando...' : 'Cerrar sesión'}
+        </button>
+      `;
 
     const headerLogoutButton = document.getElementById('header-logout-btn');
     if (headerLogoutButton) {
@@ -136,12 +137,7 @@ function renderHeaderActions(route) {
     return;
   }
 
-  if (route !== ROUTES.LOGIN) {
-    headerActionsRoot.innerHTML =
-      '<a class="btn btn-secondary btn-header" href="#/login">Login</a>';
-    return;
-  }
-
+  headerActionsRoot.classList.remove('site-header__actions--session');
   headerActionsRoot.innerHTML = '';
 }
 
@@ -349,26 +345,16 @@ function renderCalendarGrid() {
     return `<div class="calendar-weekday" data-short="${shortLabel}">${label}</div>`;
   }).join('');
 
-  const profile = state.profileData || {};
-
   appRoot.innerHTML = `
     <section class="panel">
       <div class="calendar-header-row">
         <div class="calendar-header-main">
           <h2>Calendario (${monthLabel})</h2>
-          <p class="muted">anchorDate=2026-04-18 | timezone=Europe/Madrid | patron 12 dias.</p>
-          <p class="muted">
-            Perfil:
-            <span class="profile-chip" style="--profile-color:${escapeHtml(profile.color || DEFAULT_PROFILE_COLOR)}"></span>
-            <strong>${escapeHtml(profile.name || 'sin nombre')}</strong>
-            | slot #${escapeHtml(profile.slotId || '?')}
-          </p>
-          <p class="muted">Sesion: <strong>${escapeHtml(state.authUser?.email || 'sin email')}</strong></p>
         </div>
       </div>
 
       <section class="calendar-legend" aria-label="Leyenda de usuarios activos">
-        <p class="legend-title">Integrantes activos (orden por slot)</p>
+        <p class="legend-title">Integrantes activos</p>
         ${buildLegendContent()}
       </section>
 
@@ -514,7 +500,7 @@ function renderCalendar() {
 }
 
 function renderRoute(route) {
-  renderHeaderActions(route);
+  renderHeaderActions();
 
   switch (route) {
     case ROUTES.HOME:
