@@ -25,10 +25,10 @@ function renderHome() {
         <li>Estados diarios: ${Object.values(DailyStatus).join(' | ')}</li>
       </ul>
       <div class="badge-row">
-        <span class="badge morning">MORNING</span>
-        <span class="badge afternoon">AFTERNOON</span>
-        <span class="badge night">NIGHT</span>
-        <span class="badge off">OFF</span>
+        <span class="badge manana">mañana</span>
+        <span class="badge tarde">tarde</span>
+        <span class="badge noche">noche</span>
+        <span class="badge libre">libre</span>
       </div>
     </section>
   `;
@@ -47,14 +47,14 @@ function renderLogin() {
 
 function toShiftClass(shiftKind) {
   switch (shiftKind) {
-    case 'MORNING':
-      return 'morning';
-    case 'AFTERNOON':
-      return 'afternoon';
-    case 'NIGHT':
-      return 'night';
+    case 'mañana':
+      return 'manana';
+    case 'tarde':
+      return 'tarde';
+    case 'noche':
+      return 'noche';
     default:
-      return 'off';
+      return 'libre';
   }
 }
 
