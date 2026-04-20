@@ -1,23 +1,25 @@
 # Cuadrante
 
-Base de la Parte 1 para la app privada del turno 6x6.
+Parte 1 migrada a HTML + CSS + JavaScript vanilla (sin React, sin Vite, sin TypeScript, sin build).
 
-## Estado actual
+## Rutas (hash routing)
 
-- Rutas minimas: `/`, `/login`, `/calendario`, `*`
-- Dominio base preparado para:
-  - ciclo 12 dias (2 manana, 2 tarde, 2 noche, 6 libre)
-  - `anchorDate = 2026-04-18` (dia 1 = primera manana)
-  - estados diarios `VOY | NO_VOY | VIALIA`
-- Firebase preparado (cliente/auth/firestore) sin cerrar aun el modelo final de persistencia de estados diarios.
+- `#/`
+- `#/login`
+- `#/calendario`
 
-## Scripts
+## Dominio base
 
-- `npm run dev`
-- `npm run build`
-- `npm run test`
-- `npm run lint`
+- `anchorDate = 2026-04-18`
+- Patron de 12 dias: MORNING x2, AFTERNOON x2, NIGHT x2, OFF x6
+- Estado diario: `VOY | NO_VOY | VIALIA`
+- `VIALIA` es estado explicito, no ausencia ni booleano
 
-## Variables de entorno
+## Firebase
 
-Copia `.env.example` a `.env.local` y completa tus claves de Firebase.
+`js/firebase.js` deja la inicializacion preparada, sin login real ni Firestore real en esta fase.
+
+## GitHub Pages
+
+Este proyecto esta preparado para `Deploy from branch` usando `main / root`.
+No necesita build.

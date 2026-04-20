@@ -1,12 +1,32 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cuadrante</title>
+    <link rel="stylesheet" href="./css/styles.css" />
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <header class="site-header">
+      <div class="site-header__content">
+        <div>
+          <p class="eyebrow">Turno 6x6</p>
+          <h1>Cuadrante</h1>
+        </div>
+        <nav class="nav" aria-label="Principal">
+          <a class="nav-link" data-route-link href="#/">Inicio</a>
+          <a class="nav-link" data-route-link href="#/login">Login</a>
+          <a class="nav-link" data-route-link href="#/calendario">Calendario</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="main-container">
+      <div id="app" aria-live="polite"></div>
+    </main>
+
+    <noscript>Cuadrante necesita JavaScript para funcionar.</noscript>
+
+    <script type="module" src="./js/app.js"></script>
   </body>
 </html>
