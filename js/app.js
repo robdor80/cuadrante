@@ -94,8 +94,8 @@ function renderCalendar() {
       ({ dateKey, shiftKind, cycleDay }) => `
         <article class="calendar-day ${dateKey === todayKey ? 'is-today' : ''}">
           <p class="calendar-day-number">${getDayNumber(dateKey)}</p>
-          <p class="muted calendar-day-meta">${dateKey}</p>
-          <p class="muted calendar-day-meta">Dia de ciclo: ${cycleDay}/12</p>
+          <p class="muted calendar-day-meta calendar-day-meta--date">${dateKey}</p>
+          <p class="muted calendar-day-meta calendar-day-meta--cycle">Dia ${cycleDay}/12</p>
           <span class="badge ${toShiftClass(shiftKind)}">${shiftKind}</span>
         </article>
       `,
