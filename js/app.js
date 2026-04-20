@@ -6,13 +6,51 @@
   SHIFT_PATTERN,
   SHIFT_TIMEZONE,
   SLOT_COUNT,
+  isEmailAllowed,
+  normalizeEmail,
 } from './config.js';
-import { initFirebase, isFirebaseConfigured } from './firebase.js';
+import {
+  initFirebase,
+  isAuthReadyForUse,
+  isFirebaseConfigured,
+  observeAuthState,
+  signInWithGoogle,
+  signOutUser,
+} from './firebase.js';
 import { createHashRouter } from './router.js';
 import { getMonthAssignments } from './shiftCycle.js';
 
 const appRoot = document.getElementById('app');
 const WEEKDAY_LABELS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
+const ROUTE_SET = new Set([ROUTES.HOME, ROUTES.LOGIN, ROUTES.CALENDAR]);
+
+const state = {
+  authStatus: 'loading',
+  authUser: null,
+  authError: '',
+  deniedEmail: '',
+  keepDeniedNotice: false,
+  isSigningIn: false,
+  isSigningOut: false,
+};
+
+function normalizeRouteFromHash(hashValue) {
+  const raw = (hashValue || '').replace(/^#/, '').trim();
+  if (!raw) {
+    return ROUTES.LOGIN;
+  }
+
+  return raw.startsWith('/') ? raw : `/${raw}`;
+}
+
+function getCurrentRoute() {
+  const route = normalizeRouteFromHash(window.location.hash);
+  return ROUTE_SET.has(route) ? route : ROUTES.LOGIN;
+}
+
+function goTo(route) {
+  window.location.hash = `#${route}`;
+}
 
 function setActiveNav(route) {
   const links = document.querySelectorAll('[data-route-link]');
@@ -23,36 +61,95 @@ function setActiveNav(route) {
   });
 }
 
-function renderHome() {
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function mapAuthErrorMessage(error) {
+  if (!error || typeof error !== 'object') {
+    return 'No se pudo iniciar sesion con Google.';
+  }
+
+  switch (error.code) {
+    case 'auth/popup-closed-by-user':
+      return 'Se cerro la ventana de Google antes de completar el acceso.';
+    case 'auth/popup-blocked':
+      return 'El navegador bloqueo el popup. Permite popups para continuar.';
+    case 'auth/cancelled-popup-request':
+      return 'Ya habia un intento de login en curso.';
+    default:
+      return 'Error de autenticacion con Google. Intentalo de nuevo.';
+  }
+}
+
+function renderLoadingPanel(message) {
+  appRoot.innerHTML = `
+    <section class="panel auth-panel">
+      <h2>Cargando</h2>
+      <p class="muted">${message}</p>
+    </section>
+  `;
+}
+
+function renderHomeInfo() {
   appRoot.innerHTML = `
     <section class="panel">
       <h2>Base de ${APP_NAME}</h2>
-      <p class="muted">Parte 1 en HTML, CSS y JavaScript vanilla para GitHub Pages (sin build).</p>
+      <p class="muted">Parte 2: login Google + whitelist + sesion persistente.</p>
       <ul>
         <li>6 slots fijos: ${SLOT_COUNT}</li>
         <li>Ciclo 12 dias: ${SHIFT_PATTERN.join(' -> ')}</li>
         <li>Estados diarios: ${Object.values(DailyStatus).join(' | ')}</li>
       </ul>
-      <div class="badge-row">
-        <span class="badge manana">ma&ntilde;ana</span>
-        <span class="badge tarde">tarde</span>
-        <span class="badge noche">noche</span>
-        <span class="badge libre">libre</span>
-      </div>
-      <p class="muted">En calendario movil: solo se muestran marcadores cuando exista una marca.</p>
+      <p class="muted">Para acceder al calendario necesitas un email autorizado.</p>
     </section>
   `;
 }
 
 function renderLogin() {
+  if (state.authStatus === 'authenticated') {
+    goTo(ROUTES.CALENDAR);
+    return;
+  }
+
+  const isFirebaseReady = isAuthReadyForUse();
+  const buttonDisabled = !isFirebaseReady || state.isSigningIn || state.isSigningOut;
+
+  let statusBlock = '';
+  if (state.deniedEmail) {
+    statusBlock = `
+      <p class="auth-message auth-message--denied">
+        Acceso denegado: el email <strong>${escapeHtml(state.deniedEmail)}</strong> no esta autorizado.
+      </p>
+    `;
+  } else if (state.authError) {
+    statusBlock = `<p class="auth-message auth-message--error">${escapeHtml(state.authError)}</p>`;
+  } else if (!isFirebaseReady) {
+    statusBlock =
+      '<p class="auth-message auth-message--warn">Firebase no esta configurado todavia. Revisa js/config.js.</p>';
+  }
+
   appRoot.innerHTML = `
-    <section class="panel">
+    <section class="panel auth-panel">
       <h2>Login</h2>
-      <p class="muted">Placeholder de acceso. Login Google y whitelist se implementaran en fase posterior.</p>
-      <p class="muted">Firebase configurado: <strong>${isFirebaseConfigured() ? 'si' : 'no'}</strong></p>
-      <button type="button" disabled>Continuar con Google (pendiente)</button>
+      <p class="muted">Accede con Google para entrar al calendario del turno.</p>
+      ${statusBlock}
+      <button id="google-login-btn" class="btn btn-primary" type="button" ${buttonDisabled ? 'disabled' : ''}>
+        ${state.isSigningIn ? 'Abriendo Google...' : 'Continuar con Google'}
+      </button>
+      <p class="muted auth-help">Firebase configurado: <strong>${isFirebaseConfigured() ? 'si' : 'no'}</strong></p>
     </section>
   `;
+
+  const loginButton = document.getElementById('google-login-btn');
+  if (loginButton) {
+    loginButton.addEventListener('click', handleGoogleLogin);
+  }
 }
 
 function toShiftToneClass(shiftKind) {
@@ -114,6 +211,16 @@ function getTodayKey() {
 }
 
 function renderCalendar() {
+  if (state.authStatus === 'loading') {
+    renderLoadingPanel('Verificando sesion...');
+    return;
+  }
+
+  if (state.authStatus !== 'authenticated') {
+    goTo(ROUTES.LOGIN);
+    return;
+  }
+
   const { monthLabel, days } = getMonthAssignments(new Date());
   const firstWeekdayIndex = days.length > 0 ? getWeekdayIndex(days[0].dateKey) : 0;
   const leadingEmptyCells = Array.from(
@@ -134,9 +241,10 @@ function renderCalendar() {
       const vialiaMarkers = vialia
         .map((color) => `<span class="marker marker-vialia" style="--marker-color:${color}">·V</span>`)
         .join('');
-      const markersBlock = noVoyMarkers || vialiaMarkers
-        ? `<div class="calendar-markers">${noVoyMarkers}${vialiaMarkers}</div>`
-        : '';
+      const markersBlock =
+        noVoyMarkers || vialiaMarkers
+          ? `<div class="calendar-markers">${noVoyMarkers}${vialiaMarkers}</div>`
+          : '';
 
       return `
         <article
@@ -167,8 +275,16 @@ function renderCalendar() {
 
   appRoot.innerHTML = `
     <section class="panel">
-      <h2>Calendario (${monthLabel})</h2>
-      <p class="muted">anchorDate=2026-04-18 | timezone=Europe/Madrid | patron 12 dias.</p>
+      <div class="calendar-header-row">
+        <div>
+          <h2>Calendario (${monthLabel})</h2>
+          <p class="muted">anchorDate=2026-04-18 | timezone=Europe/Madrid | patron 12 dias.</p>
+          <p class="muted">Sesion: <strong>${escapeHtml(state.authUser?.email || 'sin email')}</strong></p>
+        </div>
+        <button id="logout-btn" class="btn btn-secondary" type="button" ${state.isSigningOut ? 'disabled' : ''}>
+          ${state.isSigningOut ? 'Cerrando...' : 'Cerrar sesion'}
+        </button>
+      </div>
       <div class="calendar-shell">
         <div class="calendar-weekdays">${weekdayHeaders}</div>
         <div class="calendar-month-grid">${leadingEmptyCells}${dayCells}${trailingEmptyCells}</div>
@@ -176,20 +292,160 @@ function renderCalendar() {
       <p class="muted">En movil: numero de dia y marcadores solo cuando haya estados.</p>
     </section>
   `;
+
+  const logoutButton = document.getElementById('logout-btn');
+  if (logoutButton) {
+    logoutButton.addEventListener('click', handleLogout);
+  }
 }
 
-function bootstrap() {
+function renderRoute(route) {
+  setActiveNav(route);
+
+  switch (route) {
+    case ROUTES.HOME:
+      if (state.authStatus === 'loading') {
+        renderLoadingPanel('Verificando sesion...');
+      } else if (state.authStatus === 'authenticated') {
+        goTo(ROUTES.CALENDAR);
+      } else {
+        goTo(ROUTES.LOGIN);
+      }
+      break;
+    case ROUTES.LOGIN:
+      renderLogin();
+      break;
+    case ROUTES.CALENDAR:
+      renderCalendar();
+      break;
+    default:
+      renderHomeInfo();
+      break;
+  }
+}
+
+function refreshCurrentRoute() {
+  renderRoute(getCurrentRoute());
+}
+
+async function handleGoogleLogin() {
+  if (state.isSigningIn) {
+    return;
+  }
+
+  if (!isAuthReadyForUse()) {
+    state.authError = 'Firebase no esta configurado. Completa js/config.js antes de iniciar sesion.';
+    refreshCurrentRoute();
+    return;
+  }
+
+  state.authError = '';
+  state.deniedEmail = '';
+  state.keepDeniedNotice = false;
+  state.isSigningIn = true;
+  refreshCurrentRoute();
+
+  try {
+    await signInWithGoogle();
+  } catch (error) {
+    state.authError = mapAuthErrorMessage(error);
+  } finally {
+    state.isSigningIn = false;
+    refreshCurrentRoute();
+  }
+}
+
+async function handleLogout() {
+  if (state.isSigningOut) {
+    return;
+  }
+
+  state.isSigningOut = true;
+  state.authError = '';
+  state.deniedEmail = '';
+  state.keepDeniedNotice = false;
+  refreshCurrentRoute();
+
+  try {
+    await signOutUser();
+  } catch (_error) {
+    state.authError = 'No se pudo cerrar sesion. Intentalo de nuevo.';
+  } finally {
+    state.isSigningOut = false;
+    refreshCurrentRoute();
+  }
+}
+
+async function bootstrap() {
   initFirebase();
 
   const router = createHashRouter({
     routeHandlers: {
-      [ROUTES.HOME]: renderHome,
-      [ROUTES.LOGIN]: renderLogin,
-      [ROUTES.CALENDAR]: renderCalendar,
+      [ROUTES.HOME]: () => renderRoute(ROUTES.HOME),
+      [ROUTES.LOGIN]: () => renderRoute(ROUTES.LOGIN),
+      [ROUTES.CALENDAR]: () => renderRoute(ROUTES.CALENDAR),
     },
     fallbackRoute: ROUTES.LOGIN,
-    onRouteChange: setActiveNav,
   });
+
+  await observeAuthState(async (firebaseUser) => {
+    if (!firebaseUser) {
+      state.authStatus = 'unauthenticated';
+      state.authUser = null;
+
+      if (state.keepDeniedNotice) {
+        state.keepDeniedNotice = false;
+      } else {
+        state.deniedEmail = '';
+      }
+
+      if (getCurrentRoute() === ROUTES.CALENDAR) {
+        goTo(ROUTES.LOGIN);
+      } else {
+        refreshCurrentRoute();
+      }
+      return;
+    }
+
+    const email = normalizeEmail(firebaseUser.email);
+
+    if (!isEmailAllowed(email)) {
+      state.authStatus = 'unauthenticated';
+      state.authUser = null;
+      state.authError = '';
+      state.deniedEmail = email || '(sin email)';
+      state.keepDeniedNotice = true;
+
+      if (getCurrentRoute() !== ROUTES.LOGIN) {
+        goTo(ROUTES.LOGIN);
+      }
+
+      refreshCurrentRoute();
+      await signOutUser();
+      return;
+    }
+
+    state.authStatus = 'authenticated';
+    state.authUser = {
+      uid: firebaseUser.uid,
+      email,
+      displayName: firebaseUser.displayName || '',
+    };
+    state.authError = '';
+    state.deniedEmail = '';
+    state.keepDeniedNotice = false;
+
+    const currentRoute = getCurrentRoute();
+    if (currentRoute === ROUTES.LOGIN || currentRoute === ROUTES.HOME) {
+      goTo(ROUTES.CALENDAR);
+    } else {
+      refreshCurrentRoute();
+    }
+  });
+
+  if (!isAuthReadyForUse()) {
+    state.authStatus = 'unauthenticated';
+  }
 
   router.start();
 }

@@ -68,6 +68,32 @@ h1 {
   background: #d8ecff;
 }
 
+.btn {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn-primary {
+  background: #0d5e89;
+  color: #fff;
+}
+
+.btn-secondary {
+  background: #edf3f8;
+  border-color: #c8d7e6;
+  color: #12314d;
+}
+
 .main-container {
   max-width: 980px;
   margin: 0 auto;
@@ -88,6 +114,44 @@ h1 {
 
 .muted {
   color: var(--muted);
+}
+
+.auth-panel {
+  max-width: 460px;
+}
+
+.auth-panel .btn {
+  width: 100%;
+}
+
+.auth-message {
+  margin: 10px 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.auth-message--denied {
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.auth-message--error {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+}
+
+.auth-message--warn {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e3a8a;
+}
+
+.auth-help {
+  margin-top: 10px;
 }
 
 .badge-row {
@@ -137,6 +201,14 @@ h1 {
 .calendar-shell {
   margin-top: 12px;
   overflow-x: hidden;
+}
+
+.calendar-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .calendar-weekdays,
@@ -294,6 +366,11 @@ h1 {
     font-size: 0.58rem;
     padding: 2px 2px;
   }
+
+  .btn {
+    font-size: 0.78rem;
+    padding: 6px 9px;
+  }
 }
 
 @media (orientation: landscape) and (max-width: 900px) {
@@ -311,7 +388,6 @@ h1 {
     min-height: 92px;
     padding: 5px;
   }
-
 }
 
 @media (min-width: 600px) {

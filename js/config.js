@@ -46,3 +46,20 @@ export const FIREBASE_CONFIG = Object.freeze({
   messagingSenderId: '',
   appId: '',
 });
+
+// Parte 2: lista blanca temporal local (sin Firestore).
+// Sustituye estos placeholders por los correos reales permitidos.
+export const ALLOWED_EMAILS = Object.freeze([
+  'tu_correo_de_prueba@gmail.com',
+  'otro_correo@example.com',
+]);
+
+export function normalizeEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+const ALLOWED_EMAILS_NORMALIZED = new Set(ALLOWED_EMAILS.map((email) => normalizeEmail(email)));
+
+export function isEmailAllowed(email) {
+  return ALLOWED_EMAILS_NORMALIZED.has(normalizeEmail(email));
+}

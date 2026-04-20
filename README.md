@@ -1,6 +1,6 @@
 ﻿# Cuadrante
 
-Parte 1 migrada a HTML + CSS + JavaScript vanilla (sin React, sin Vite, sin TypeScript, sin build).
+Proyecto web en HTML + CSS + JavaScript vanilla para GitHub Pages (sin build).
 
 ## Rutas (hash routing)
 
@@ -15,11 +15,36 @@ Parte 1 migrada a HTML + CSS + JavaScript vanilla (sin React, sin Vite, sin Type
 - Estado diario: `VOY | NO_VOY | VIALIA`
 - `VIALIA` es estado explicito, no ausencia ni booleano
 
-## Firebase
+## Parte 2 (Auth + whitelist)
 
-`js/firebase.js` deja la inicializacion preparada, sin login real ni Firestore real en esta fase.
+Se ha integrado:
+
+- Login con Google (`signInWithPopup`)
+- Sesion persistente local (Firebase Auth)
+- Whitelist local de emails en `js/config.js`
+- Proteccion de `#/calendario` (si no hay sesion valida, redirige a `#/login`)
+- Acceso denegado visible en `#/login` cuando el email no esta autorizado
+
+### Donde poner tus datos reales
+
+1. Firebase config:
+   - Edita `FIREBASE_CONFIG` en `js/config.js`.
+2. Emails permitidos:
+   - Edita `ALLOWED_EMAILS` en `js/config.js`.
+   - Sustituye los placeholders por tus correos reales.
+
+## Pasos en Firebase Console
+
+1. En Firebase Console crea/usa tu proyecto.
+2. En `Authentication > Sign-in method`, habilita `Google`.
+3. En `Authentication > Settings > Authorized domains`, anade:
+   - `localhost` (pruebas locales)
+   - `robdor80.github.io` (GitHub Pages)
+4. En `Project settings > General > Your apps > Web app`, copia la config y pegala en `FIREBASE_CONFIG`.
 
 ## GitHub Pages
 
-Este proyecto esta preparado para `Deploy from branch` usando `main / root`.
-No necesita build.
+- Configurar en `Settings > Pages`:
+  - Source: `Deploy from branch`
+  - Branch: `main`
+  - Folder: `/ (root)`
