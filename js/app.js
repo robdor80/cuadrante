@@ -462,6 +462,23 @@ function getStatusByUidForDate(dateKey) {
   return dayMap;
 }
 
+function getWorkingCountForDate(dateKey) {
+  const dayMap = getStatusByUidForDate(dateKey);
+
+  if (state.legendUsers.length > 0) {
+    let noVoyCount = 0;
+    state.legendUsers.forEach((user) => {
+      if (dayMap[user.uid] === DailyStatus.NO_VOY) {
+        noVoyCount += 1;
+      }
+    });
+    return Math.max(0, state.legendUsers.length - noVoyCount);
+  }
+
+  const noVoyFallback = Object.values(dayMap).filter((status) => status === DailyStatus.NO_VOY).length;
+  return Math.max(0, SLOT_COUNT - noVoyFallback);
+}
+
 function getCurrentUserStatusForDate(dateKey) {
   if (!state.authUser || !dateKey) {
     return DailyStatus.VOY;
@@ -476,54 +493,6 @@ function getCurrentUserStatusForDate(dateKey) {
   return DailyStatus.VOY;
 }
 
-function getUserByUidMap() {
-  return new Map(state.legendUsers.map((user) => [user.uid, user]));
-}
-
-function getDayMarkers(dateKey) {
-  const dayMap = getStatusByUidForDate(dateKey);
-  const userByUid = getUserByUidMap();
-
-  return Object.entries(dayMap)
-    .filter(([, status]) => status === DailyStatus.NO_VOY || status === DailyStatus.VIALIA)
-    .map(([uid, status]) => {
-      const user = userByUid.get(uid);
-      return {
-        uid,
-        status,
-        slotId: Number.isInteger(user?.slotId) ? user.slotId : 999,
-        color: user?.color || DEFAULT_PROFILE_COLOR,
-        label: user?.name || user?.email || uid,
-      };
-    })
-    .sort((a, b) => a.slotId - b.slotId || a.uid.localeCompare(b.uid));
-}
-
-function buildMarkersHtml(dateKey) {
-  const markers = getDayMarkers(dateKey);
-  if (!markers.length) {
-    return '';
-  }
-
-  return markers
-    .map((marker) => {
-      if (marker.status === DailyStatus.VIALIA) {
-        return `
-          <span class="day-marker day-marker--vialia" style="--marker-color:${escapeHtml(marker.color)}" title="${escapeHtml(
-            marker.label,
-          )}: Vialia">&middot;V</span>
-        `;
-      }
-
-      return `
-        <span class="day-marker day-marker--novoy" style="--marker-color:${escapeHtml(marker.color)}" title="${escapeHtml(
-          marker.label,
-        )}: No va">&middot;</span>
-      `;
-    })
-    .join('');
-}
-
 function getDailyStatusInfoHtml() {
   if (state.dailyStatusStatus === 'loading') {
     return '<p class="muted daily-status-info">Cargando estados del mes...</p>';
@@ -535,7 +504,7 @@ function getDailyStatusInfoHtml() {
     )}</p>`;
   }
 
-  return '<p class="muted daily-status-info">Haz clic en un dia del mes para abrir el detalle.</p>';
+  return '<p class="muted daily-status-info">El numero en cada dia indica cuantos trabajan ese dia.</p>';
 }
 
 function getShiftLabel(shiftKind) {
@@ -703,7 +672,7 @@ function renderCalendarGrid() {
       const isEditable = isCurrentMonth && isWorkShift;
       const outsideClass = isCurrentMonth ? '' : ' calendar-day--outside';
       const selectedClass = state.selectedDateKey === dateKey && isEditable ? ' is-selected' : '';
-      const markerHtml = buildMarkersHtml(dateKey);
+      const workingCount = getWorkingCountForDate(dateKey);
       const interactiveAttrs = isEditable
         ? 'role="button" tabindex="0"'
         : 'aria-disabled="true" tabindex="-1"';
@@ -723,7 +692,7 @@ function renderCalendarGrid() {
             <p class="calendar-day-number">${dayNumber}</p>
             <span class="shift-code">${shiftCode}</span>
           </div>
-          <div class="calendar-marker-slot" aria-label="Marcadores del dia">${markerHtml}</div>
+          <div class="calendar-availability-slot" aria-label="Companeros que trabajan">${workingCount}</div>
         </article>
       `;
     })

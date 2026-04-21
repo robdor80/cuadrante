@@ -661,35 +661,20 @@ h1 {
   border: 1px solid rgba(100, 116, 139, 0.25);
 }
 
-.calendar-marker-slot {
+.calendar-availability-slot {
   margin-top: 5px;
   min-height: 18px;
-  padding: 2px 4px;
+  padding: 2px 6px;
   border-radius: 6px;
-  border: 1px dashed rgba(31, 41, 55, 0.18);
+  border: 1px solid rgba(31, 41, 55, 0.2);
   background: rgba(255, 255, 255, 0.35);
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  flex-wrap: wrap;
-  gap: 3px 6px;
-}
-
-.day-marker {
-  display: inline-flex;
-  align-items: center;
   justify-content: center;
-  min-width: 12px;
-  line-height: 1;
-  font-size: 0.9rem;
+  line-height: 1.1;
+  font-size: 0.96rem;
   font-weight: 800;
-  color: var(--marker-color, #1d4ed8);
-}
-
-.day-marker--vialia {
-  font-size: 0.78rem;
-  letter-spacing: 0.02em;
-  padding-right: 1px;
+  color: #1f3952;
 }
 
 @media (max-width: 359px) {
@@ -740,9 +725,10 @@ h1 {
     opacity: 0.68;
   }
 
-  .calendar-marker-slot {
+  .calendar-availability-slot {
     min-height: 14px;
     padding: 1px 3px;
+    font-size: 0.86rem;
   }
 
   .btn {
@@ -839,8 +825,9 @@ h1 {
     opacity: 0.62;
   }
 
-  .calendar-marker-slot {
+  .calendar-availability-slot {
     min-height: 17px;
+    font-size: 0.94rem;
   }
 
   .day-modal-edit-title {
@@ -884,8 +871,9 @@ h1 {
     grid-template-rows: repeat(6, minmax(124px, 1fr));
   }
 
-  .calendar-marker-slot {
+  .calendar-availability-slot {
     min-height: 18px;
+    font-size: 0.98rem;
   }
 
   .day-modal-card {
@@ -927,8 +915,9 @@ h1 {
     background: rgba(255, 255, 255, 0.4);
   }
 
-  .calendar-marker-slot {
+  .calendar-availability-slot {
     min-height: 19px;
+    font-size: 1.04rem;
   }
 
   .legend-list {
