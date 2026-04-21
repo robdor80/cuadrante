@@ -341,10 +341,23 @@ function renderHeaderActions() {
         <span class="header-user-dot" style="--header-user-color:${escapeHtml(getHeaderUserColor())}"></span>
         <span class="header-user-name">${escapeHtml(getHeaderUserName())}</span>
       </div>
-      <button id="header-logout-btn" class="btn btn-secondary btn-header" type="button" ${
+      <button
+        id="header-logout-btn"
+        class="btn btn-header btn-logout-ghost"
+        type="button"
+        aria-label="Cerrar sesión"
+        ${
         state.isSigningOut ? 'disabled' : ''
-      }>
-        ${state.isSigningOut ? 'Cerrando...' : 'Cerrar sesion'}
+      }
+      >
+        <span class="logout-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+            <path d="M13 4H6.8A1.8 1.8 0 0 0 5 5.8v12.4A1.8 1.8 0 0 0 6.8 20H13" />
+            <path d="M14 12h7" />
+            <path d="m18 8 4 4-4 4" />
+          </svg>
+        </span>
+        <span class="logout-label">${state.isSigningOut ? 'Saliendo...' : 'Salir'}</span>
       </button>
     `;
 
@@ -1793,4 +1806,3 @@ async function bootstrap() {
 }
 
 bootstrap();
-
