@@ -555,6 +555,85 @@ function getDailyStatusInfoHtml() {
   return '<p class="muted daily-status-info">El numero en cada dia indica cuantos trabajan ese dia.</p>';
 }
 
+function getMultiSelectionCountLabel() {
+  const count = state.multiSelectedDateKeys.size;
+  return `${count} ${count === 1 ? 'dia' : 'dias'}`;
+}
+
+function handleBulkActionStub(action) {
+  if (!state.isMultiSelectMode) {
+    return;
+  }
+
+  const selectedDateKeys = Array.from(state.multiSelectedDateKeys).sort();
+  if (!selectedDateKeys.length) {
+    return;
+  }
+
+  // Placeholder para 7C: aqui se conectara la persistencia real en Firestore.
+  console.info('[Cuadrante] bulk action placeholder', {
+    action,
+    selectedDateKeys,
+  });
+}
+
+function buildMultiSelectBarHtml() {
+  if (!state.isMultiSelectMode) {
+    return '';
+  }
+
+  const hasSelection = state.multiSelectedDateKeys.size > 0;
+  const disabledAttr = hasSelection ? '' : 'disabled';
+
+  return `
+    <div class="multi-select-bar" aria-label="Acciones de multiseleccion">
+      <div class="multi-select-bar__inner">
+        <div class="multi-select-bar__card">
+          <p class="multi-select-bar__count muted">${escapeHtml(getMultiSelectionCountLabel())}</p>
+          <div class="multi-select-bar__actions">
+            <button
+              id="bulk-voy-btn"
+              type="button"
+              class="btn btn-secondary"
+              ${disabledAttr}
+            >
+              VOY
+            </button>
+            <button
+              id="bulk-no-voy-btn"
+              type="button"
+              class="btn btn-secondary"
+              ${disabledAttr}
+            >
+              NO VOY
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function bindMultiSelectBarEvents() {
+  if (!state.isMultiSelectMode) {
+    return;
+  }
+
+  const bulkVoyButton = document.getElementById('bulk-voy-btn');
+  if (bulkVoyButton) {
+    bulkVoyButton.addEventListener('click', () => {
+      handleBulkActionStub(DailyStatus.VOY);
+    });
+  }
+
+  const bulkNoVoyButton = document.getElementById('bulk-no-voy-btn');
+  if (bulkNoVoyButton) {
+    bulkNoVoyButton.addEventListener('click', () => {
+      handleBulkActionStub(DailyStatus.NO_VOY);
+    });
+  }
+}
+
 function getShiftLabel(shiftKind) {
   switch (shiftKind) {
     case 'ma\u00f1ana':
@@ -759,9 +838,13 @@ function renderCalendarGrid() {
     return `<div class="calendar-weekday" data-short="${shortLabel}">${label}</div>`;
   }).join('');
   const dayModalHtml = buildDayModalHtml();
+  const multiSelectBarHtml = buildMultiSelectBarHtml();
+  const multiSelectSpacerHtml = state.isMultiSelectMode
+    ? '<div class="calendar-multi-spacer" aria-hidden="true"></div>'
+    : '';
   const selectedCount = state.multiSelectedDateKeys.size;
   const multiModeInfo = state.isMultiSelectMode
-    ? `<p class="calendar-multi-meta muted">Modo multiseleccion activo · ${selectedCount} dia${selectedCount === 1 ? '' : 's'} seleccionados</p>`
+    ? `<p class="calendar-multi-meta muted">${selectedCount} seleccionados</p>`
     : '';
 
   appRoot.innerHTML = `
@@ -797,8 +880,10 @@ function renderCalendarGrid() {
         <div class="calendar-weekdays">${weekdayHeaders}</div>
         <div class="calendar-month-grid">${dayCells}</div>
       </div>
+      ${multiSelectSpacerHtml}
 
       ${dayModalHtml}
+      ${multiSelectBarHtml}
     </section>
   `;
 
@@ -869,6 +954,8 @@ function renderCalendarGrid() {
       handleStatusUpdate(String(button.dataset.modalStatusAction || ''), state.dayModalDateKey);
     });
   });
+
+  bindMultiSelectBarEvents();
 }
 
 function renderProfileSetup() {
