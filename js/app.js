@@ -86,6 +86,10 @@ const state = {
   isBulkApplying: false,
   bulkActionFeedback: '',
   bulkActionFeedbackType: '',
+  rangeStartDateKey: '',
+  rangeEndDateKey: '',
+  rangeFeedback: '',
+  rangeFeedbackType: '',
 };
 
 function normalizeRouteFromHash(hashValue) {
@@ -129,6 +133,15 @@ function getMonthKeyFromDate(dateValue) {
 
 function getMonthKeyFromDateKey(dateKey) {
   return String(dateKey || '').slice(0, 7);
+}
+
+function parseDateKeyToUtcMs(dateKey) {
+  if (!DATE_KEY_REGEX.test(dateKey)) {
+    return Number.NaN;
+  }
+
+  const [year, month, day] = dateKey.split('-').map(Number);
+  return Date.UTC(year, month - 1, day);
 }
 
 function parseDateKey(dateKey) {
@@ -191,6 +204,13 @@ function formatSelectedDateLabel(dateKey) {
   });
 }
 
+function clearRangeSelectionState() {
+  state.rangeStartDateKey = '';
+  state.rangeEndDateKey = '';
+  state.rangeFeedback = '';
+  state.rangeFeedbackType = '';
+}
+
 function clearMonthStatusListener() {
   if (typeof state.unsubscribeMonthStatuses === 'function') {
     state.unsubscribeMonthStatuses();
@@ -230,6 +250,7 @@ function setMultiSelectMode(enabled) {
 
   state.isMultiSelectMode = nextValue;
   clearMultiSelection({ refresh: false });
+  clearRangeSelectionState();
 
   if (nextValue && state.dayModalOpen) {
     closeDayModal({ skipRefresh: true });
@@ -249,6 +270,8 @@ function toggleMultiSelectedDate(dateKey) {
 
   state.bulkActionFeedback = '';
   state.bulkActionFeedbackType = '';
+  state.rangeFeedback = '';
+  state.rangeFeedbackType = '';
 }
 
 function openDayModal(dateKey) {
@@ -278,6 +301,7 @@ function resetCalendarState() {
   state.isBulkApplying = false;
   state.bulkActionFeedback = '';
   state.bulkActionFeedbackType = '';
+  clearRangeSelectionState();
 }
 
 function mapAuthErrorMessage(error) {
@@ -574,6 +598,116 @@ function getMultiSelectionCountLabel() {
   return `${count} ${count === 1 ? 'dia' : 'dias'}`;
 }
 
+function getVisibleMonthBounds() {
+  const year = state.visibleMonthDate.getFullYear();
+  const monthIndex = state.visibleMonthDate.getMonth();
+  const month = String(monthIndex + 1).padStart(2, '0');
+  const lastDay = String(new Date(year, monthIndex + 1, 0).getDate()).padStart(2, '0');
+
+  return {
+    firstDateKey: `${year}-${month}-01`,
+    lastDateKey: `${year}-${month}-${lastDay}`,
+  };
+}
+
+function iterateDateKeysRangeUtc(startDateKey, endDateKey) {
+  const startMs = parseDateKeyToUtcMs(startDateKey);
+  const endMs = parseDateKeyToUtcMs(endDateKey);
+
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || startMs > endMs) {
+    return [];
+  }
+
+  const range = [];
+  const oneDayMs = 24 * 60 * 60 * 1000;
+
+  for (let current = startMs; current <= endMs; current += oneDayMs) {
+    range.push(new Date(current).toISOString().slice(0, 10));
+  }
+
+  return range;
+}
+
+function isDateKeySelectableForMultiSelection(dateKey) {
+  if (!isDateKeyInVisibleMonth(dateKey)) {
+    return false;
+  }
+
+  return getShiftKindForDate(dateKey) !== 'libre';
+}
+
+function getSelectableDateKeysFromRange(startDateKey, endDateKey) {
+  return iterateDateKeysRangeUtc(startDateKey, endDateKey).filter((dateKey) =>
+    isDateKeySelectableForMultiSelection(dateKey),
+  );
+}
+
+function validateRangeSelection(startDateKey, endDateKey) {
+  if (!startDateKey) {
+    return { ok: false, message: 'Falta fecha inicio.' };
+  }
+
+  if (!endDateKey) {
+    return { ok: false, message: 'Falta fecha fin.' };
+  }
+
+  if (!DATE_KEY_REGEX.test(startDateKey) || !DATE_KEY_REGEX.test(endDateKey)) {
+    return { ok: false, message: 'Fecha invalida.' };
+  }
+
+  if (startDateKey > endDateKey) {
+    return { ok: false, message: 'Inicio mayor que fin.' };
+  }
+
+  if (!isDateKeyInVisibleMonth(startDateKey) || !isDateKeyInVisibleMonth(endDateKey)) {
+    return { ok: false, message: 'Rango fuera del mes visible.' };
+  }
+
+  return { ok: true };
+}
+
+function handleRangeInputChange(field, value) {
+  const safeValue = DATE_KEY_REGEX.test(String(value || '')) ? String(value) : '';
+
+  if (field === 'start') {
+    state.rangeStartDateKey = safeValue;
+  } else if (field === 'end') {
+    state.rangeEndDateKey = safeValue;
+  }
+
+  state.rangeFeedback = '';
+  state.rangeFeedbackType = '';
+}
+
+function handleApplyRangeSelection() {
+  if (!state.isMultiSelectMode || state.isBulkApplying) {
+    return;
+  }
+
+  const validation = validateRangeSelection(state.rangeStartDateKey, state.rangeEndDateKey);
+  if (!validation.ok) {
+    state.rangeFeedback = validation.message;
+    state.rangeFeedbackType = 'error';
+    refreshCurrentRoute();
+    return;
+  }
+
+  const selectableDateKeys = getSelectableDateKeysFromRange(state.rangeStartDateKey, state.rangeEndDateKey);
+  if (!selectableDateKeys.length) {
+    state.rangeFeedback = 'Sin dias validos en rango.';
+    state.rangeFeedbackType = 'error';
+    refreshCurrentRoute();
+    return;
+  }
+
+  state.multiSelectedDateKeys = new Set(selectableDateKeys);
+  state.rangeFeedback = `${selectableDateKeys.length} dias seleccionados.`;
+  state.rangeFeedbackType = 'success';
+  state.bulkActionFeedback = '';
+  state.bulkActionFeedbackType = '';
+  refreshCurrentRoute();
+}
+
 function getVisibleSelectedDateKeys() {
   return Array.from(state.multiSelectedDateKeys)
     .filter((dateKey) => DATE_KEY_REGEX.test(dateKey) && isDateKeyInVisibleMonth(dateKey))
@@ -666,6 +800,58 @@ function buildMultiSelectBarHtml() {
   `;
 }
 
+function buildMultiSelectRangeHtml() {
+  if (!state.isMultiSelectMode) {
+    return '';
+  }
+
+  const { firstDateKey, lastDateKey } = getVisibleMonthBounds();
+  const feedbackHtml = state.rangeFeedback
+    ? `<p class="multi-range-tool__feedback ${
+        state.rangeFeedbackType === 'error' ? 'is-error' : 'is-success'
+      }">${escapeHtml(state.rangeFeedback)}</p>`
+    : '';
+
+  return `
+    <section class="multi-range-tool" aria-label="Seleccion por rango en multiseleccion">
+      <p class="multi-range-tool__title">Rango rapido (multiseleccion)</p>
+      <div class="multi-range-tool__inputs">
+        <label class="multi-range-tool__field">
+          <span>Inicio</span>
+          <input
+            id="range-start-input"
+            type="date"
+            value="${escapeHtml(state.rangeStartDateKey)}"
+            min="${firstDateKey}"
+            max="${lastDateKey}"
+            ${state.isBulkApplying ? 'disabled' : ''}
+          />
+        </label>
+        <label class="multi-range-tool__field">
+          <span>Fin</span>
+          <input
+            id="range-end-input"
+            type="date"
+            value="${escapeHtml(state.rangeEndDateKey)}"
+            min="${firstDateKey}"
+            max="${lastDateKey}"
+            ${state.isBulkApplying ? 'disabled' : ''}
+          />
+        </label>
+        <button
+          id="apply-range-btn"
+          type="button"
+          class="btn btn-secondary multi-range-tool__apply"
+          ${state.isBulkApplying ? 'disabled' : ''}
+        >
+          Seleccionar rango
+        </button>
+      </div>
+      ${feedbackHtml}
+    </section>
+  `;
+}
+
 function bindMultiSelectBarEvents() {
   if (!state.isMultiSelectMode) {
     return;
@@ -682,6 +868,35 @@ function bindMultiSelectBarEvents() {
   if (bulkNoVoyButton) {
     bulkNoVoyButton.addEventListener('click', () => {
       handleBulkAction(DailyStatus.NO_VOY);
+    });
+  }
+}
+
+function bindMultiSelectRangeEvents() {
+  if (!state.isMultiSelectMode) {
+    return;
+  }
+
+  const startInput = document.getElementById('range-start-input');
+  if (startInput) {
+    startInput.addEventListener('change', (event) => {
+      handleRangeInputChange('start', event.target?.value || '');
+      refreshCurrentRoute();
+    });
+  }
+
+  const endInput = document.getElementById('range-end-input');
+  if (endInput) {
+    endInput.addEventListener('change', (event) => {
+      handleRangeInputChange('end', event.target?.value || '');
+      refreshCurrentRoute();
+    });
+  }
+
+  const applyRangeButton = document.getElementById('apply-range-btn');
+  if (applyRangeButton) {
+    applyRangeButton.addEventListener('click', () => {
+      handleApplyRangeSelection();
     });
   }
 }
@@ -890,6 +1105,7 @@ function renderCalendarGrid() {
     return `<div class="calendar-weekday" data-short="${shortLabel}">${label}</div>`;
   }).join('');
   const dayModalHtml = buildDayModalHtml();
+  const multiSelectRangeHtml = buildMultiSelectRangeHtml();
   const multiSelectBarHtml = buildMultiSelectBarHtml();
   const multiSelectSpacerHtml = state.isMultiSelectMode
     ? '<div class="calendar-multi-spacer" aria-hidden="true"></div>'
@@ -927,6 +1143,8 @@ function renderCalendarGrid() {
           ${multiModeInfo}
         </div>
       </div>
+
+      ${multiSelectRangeHtml}
 
       <section class="calendar-legend" aria-label="Leyenda de usuarios activos">
         <p class="legend-title">Integrantes activos</p>
@@ -1016,6 +1234,7 @@ function renderCalendarGrid() {
     });
   });
 
+  bindMultiSelectRangeEvents();
   bindMultiSelectBarEvents();
 }
 
@@ -1325,6 +1544,7 @@ async function handleLogout() {
 function handleMonthNavigation(delta) {
   closeDayModal({ skipRefresh: true });
   clearMultiSelection({ refresh: false });
+  clearRangeSelectionState();
   state.visibleMonthDate = addMonths(state.visibleMonthDate, delta);
   state.visibleMonthKey = getMonthKeyFromDate(state.visibleMonthDate);
   state.selectedDateKey = getDefaultSelectedDateKeyForVisibleMonth();
