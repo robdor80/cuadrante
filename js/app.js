@@ -1657,6 +1657,7 @@ async function handleStatusUpdate(status, targetDateKey = state.dayModalDateKey 
       uid: state.authUser.uid,
       status,
     });
+    closeDayModal({ skipRefresh: true });
   } catch (error) {
     if (isFirestorePermissionDeniedError(error)) {
       await handleAccessDeniedFromFirestore(state.authUser?.email);
