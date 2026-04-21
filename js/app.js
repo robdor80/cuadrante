@@ -1077,10 +1077,14 @@ function renderCalendarGrid() {
       const shiftCode = getShiftCode(shiftKind);
       const isWorkShift = shiftKind !== 'libre';
       const isEditable = isCurrentMonth && isWorkShift;
+      const dayMap = getStatusByUidForDate(dateKey);
+      const isOwnNoVoy =
+        Boolean(state.authUser?.uid) && dayMap[state.authUser.uid] === DailyStatus.NO_VOY;
       const outsideClass = isCurrentMonth ? '' : ' calendar-day--outside';
       const selectedClass =
         !state.isMultiSelectMode && state.selectedDateKey === dateKey && isEditable ? ' is-selected' : '';
       const multiSelectedClass = state.isMultiSelectMode && state.multiSelectedDateKeys.has(dateKey) ? ' is-multi-selected' : '';
+      const ownNoVoyClass = isOwnNoVoy ? ' has-own-no-voy' : '';
       const workingCount = getWorkingCountForDate(dateKey);
       const availabilityClass = getAvailabilityClass(workingCount);
       const availabilityHtml = isWorkShift
@@ -1093,7 +1097,7 @@ function renderCalendarGrid() {
 
       return `
         <article
-          class="calendar-day ${shiftToneClass}${outsideClass}${selectedClass}${multiSelectedClass} ${
+          class="calendar-day ${shiftToneClass}${outsideClass}${selectedClass}${multiSelectedClass}${ownNoVoyClass} ${
             dateKey === todayKey ? 'is-today' : ''
           }"
           title="${escapeHtml(dateKey)} | ciclo ${cycleDay}/12"

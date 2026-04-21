@@ -808,6 +808,8 @@ h1 {
 .calendar-day {
   display: flex;
   flex-direction: column;
+  position: relative;
+  overflow: hidden;
 }
 
 .calendar-day[data-current-month='1'] {
@@ -865,6 +867,8 @@ h1 {
   align-items: center;
   justify-content: space-between;
   gap: 4px;
+  position: relative;
+  z-index: 1;
 }
 
 .calendar-day-number {
@@ -901,6 +905,21 @@ h1 {
   line-height: 1.1;
   font-size: 0.96rem;
   font-weight: 800;
+  position: relative;
+  z-index: 1;
+}
+
+.calendar-day.has-own-no-voy::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.82) 0%, rgba(127, 29, 29, 0.58) 100%);
+  clip-path: polygon(0 100%, 0 0, 100% 100%);
+  pointer-events: none;
+  z-index: 0;
 }
 
 .calendar-availability-slot.availability-high {
@@ -1034,6 +1053,11 @@ h1 {
   .calendar-availability-slot {
     margin-top: 4px;
     font-size: 0.86rem;
+  }
+
+  .calendar-day.has-own-no-voy::after {
+    width: 18px;
+    height: 18px;
   }
 
   .btn {
@@ -1187,6 +1211,11 @@ h1 {
   .calendar-availability-slot {
     margin-top: 7px;
     font-size: 0.94rem;
+  }
+
+  .calendar-day.has-own-no-voy::after {
+    width: 26px;
+    height: 26px;
   }
 
   .day-modal-edit-title {
