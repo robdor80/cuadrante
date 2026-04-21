@@ -794,8 +794,8 @@ h1 {
 }
 
 .calendar-day.is-multi-selected {
-  border-color: #2563eb;
-  box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.28);
+  border-color: #a16207;
+  box-shadow: inset 0 0 0 2px rgba(161, 98, 7, 0.3);
 }
 
 .calendar-day-head {
