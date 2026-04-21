@@ -56,6 +56,7 @@ export const ALLOWED_EMAILS = Object.freeze([
   'ivanvania73@gmail.com',
   'isidroferg@gmail.com',
   'nicoriu@gmail.com',
+  'androide.repollo@gmail.com',
 ].map(e => e.trim().toLowerCase()));
 
 export function normalizeEmail(email) {
