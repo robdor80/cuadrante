@@ -10,6 +10,7 @@ import {
   normalizeEmail,
 } from './config.js';
 import {
+  applyBulkUserDailyStatus,
   createUserProfileWithAutoSlot,
   ensureSlotsInitialized,
   initFirebase,
@@ -82,6 +83,9 @@ const state = {
   dayModalError: '',
   isMultiSelectMode: false,
   multiSelectedDateKeys: new Set(),
+  isBulkApplying: false,
+  bulkActionFeedback: '',
+  bulkActionFeedbackType: '',
 };
 
 function normalizeRouteFromHash(hashValue) {
@@ -207,8 +211,12 @@ function closeDayModal({ skipRefresh = false } = {}) {
   }
 }
 
-function clearMultiSelection({ refresh = false } = {}) {
+function clearMultiSelection({ refresh = false, clearFeedback = true } = {}) {
   state.multiSelectedDateKeys = new Set();
+  if (clearFeedback) {
+    state.bulkActionFeedback = '';
+    state.bulkActionFeedbackType = '';
+  }
   if (refresh) {
     refreshCurrentRoute();
   }
@@ -238,6 +246,9 @@ function toggleMultiSelectedDate(dateKey) {
   } else {
     state.multiSelectedDateKeys.add(dateKey);
   }
+
+  state.bulkActionFeedback = '';
+  state.bulkActionFeedbackType = '';
 }
 
 function openDayModal(dateKey) {
@@ -264,6 +275,9 @@ function resetCalendarState() {
   state.dailyStatusStatus = 'idle';
   state.dailyStatusError = '';
   state.isDailyStatusSaving = false;
+  state.isBulkApplying = false;
+  state.bulkActionFeedback = '';
+  state.bulkActionFeedbackType = '';
 }
 
 function mapAuthErrorMessage(error) {
@@ -560,21 +574,53 @@ function getMultiSelectionCountLabel() {
   return `${count} ${count === 1 ? 'dia' : 'dias'}`;
 }
 
-function handleBulkActionStub(action) {
-  if (!state.isMultiSelectMode) {
+function getVisibleSelectedDateKeys() {
+  return Array.from(state.multiSelectedDateKeys)
+    .filter((dateKey) => DATE_KEY_REGEX.test(dateKey) && isDateKeyInVisibleMonth(dateKey))
+    .sort();
+}
+
+async function handleBulkAction(action) {
+  if (!state.isMultiSelectMode || state.isBulkApplying) {
     return;
   }
 
-  const selectedDateKeys = Array.from(state.multiSelectedDateKeys).sort();
+  if (![DailyStatus.VOY, DailyStatus.NO_VOY].includes(action)) {
+    return;
+  }
+
+  if (!state.authUser) {
+    return;
+  }
+
+  const selectedDateKeys = getVisibleSelectedDateKeys();
   if (!selectedDateKeys.length) {
     return;
   }
 
-  // Placeholder para 7C: aqui se conectara la persistencia real en Firestore.
-  console.info('[Cuadrante] bulk action placeholder', {
-    action,
-    selectedDateKeys,
-  });
+  state.isBulkApplying = true;
+  state.bulkActionFeedback = '';
+  state.bulkActionFeedbackType = '';
+  refreshCurrentRoute();
+
+  try {
+    await applyBulkUserDailyStatus({
+      monthKey: getMonthKeyFromDate(state.visibleMonthDate),
+      dateKeys: selectedDateKeys,
+      uid: state.authUser.uid,
+      status: action,
+    });
+
+    clearMultiSelection({ refresh: false, clearFeedback: false });
+    state.bulkActionFeedback = action === DailyStatus.VOY ? 'Aplicado: VOY.' : 'Aplicado: NO VOY.';
+    state.bulkActionFeedbackType = 'success';
+  } catch (_error) {
+    state.bulkActionFeedback = 'No se pudo aplicar.';
+    state.bulkActionFeedbackType = 'error';
+  } finally {
+    state.isBulkApplying = false;
+    refreshCurrentRoute();
+  }
 }
 
 function buildMultiSelectBarHtml() {
@@ -583,7 +629,12 @@ function buildMultiSelectBarHtml() {
   }
 
   const hasSelection = state.multiSelectedDateKeys.size > 0;
-  const disabledAttr = hasSelection ? '' : 'disabled';
+  const disabledAttr = hasSelection && !state.isBulkApplying ? '' : 'disabled';
+  const feedbackHtml = state.bulkActionFeedback
+    ? `<p class="multi-select-bar__feedback ${
+        state.bulkActionFeedbackType === 'error' ? 'is-error' : 'is-success'
+      }">${escapeHtml(state.bulkActionFeedback)}</p>`
+    : '';
 
   return `
     <div class="multi-select-bar" aria-label="Acciones de multiseleccion">
@@ -597,7 +648,7 @@ function buildMultiSelectBarHtml() {
               class="btn btn-secondary"
               ${disabledAttr}
             >
-              VOY
+              ${state.isBulkApplying ? 'Aplicando...' : 'VOY'}
             </button>
             <button
               id="bulk-no-voy-btn"
@@ -608,6 +659,7 @@ function buildMultiSelectBarHtml() {
               NO VOY
             </button>
           </div>
+          ${feedbackHtml}
         </div>
       </div>
     </div>
@@ -622,14 +674,14 @@ function bindMultiSelectBarEvents() {
   const bulkVoyButton = document.getElementById('bulk-voy-btn');
   if (bulkVoyButton) {
     bulkVoyButton.addEventListener('click', () => {
-      handleBulkActionStub(DailyStatus.VOY);
+      handleBulkAction(DailyStatus.VOY);
     });
   }
 
   const bulkNoVoyButton = document.getElementById('bulk-no-voy-btn');
   if (bulkNoVoyButton) {
     bulkNoVoyButton.addEventListener('click', () => {
-      handleBulkActionStub(DailyStatus.NO_VOY);
+      handleBulkAction(DailyStatus.NO_VOY);
     });
   }
 }
@@ -852,9 +904,13 @@ function renderCalendarGrid() {
       <div class="calendar-header-row">
         <div class="calendar-header-main">
           <div class="month-nav">
-            <button id="month-prev-btn" type="button" class="btn btn-secondary btn-month-nav" aria-label="Mes anterior">&lsaquo;</button>
+            <button id="month-prev-btn" type="button" class="btn btn-secondary btn-month-nav" aria-label="Mes anterior" ${
+              state.isBulkApplying ? 'disabled' : ''
+            }>&lsaquo;</button>
             <h2>Calendario (${monthLabel})</h2>
-            <button id="month-next-btn" type="button" class="btn btn-secondary btn-month-nav" aria-label="Mes siguiente">&rsaquo;</button>
+            <button id="month-next-btn" type="button" class="btn btn-secondary btn-month-nav" aria-label="Mes siguiente" ${
+              state.isBulkApplying ? 'disabled' : ''
+            }>&rsaquo;</button>
           </div>
           ${getDailyStatusInfoHtml()}
         </div>
@@ -864,6 +920,7 @@ function renderCalendarGrid() {
             type="button"
             class="btn btn-secondary btn-multi-select ${state.isMultiSelectMode ? 'is-active' : ''}"
             aria-pressed="${state.isMultiSelectMode ? 'true' : 'false'}"
+            ${state.isBulkApplying ? 'disabled' : ''}
           >
             ${state.isMultiSelectMode ? 'Salir multiseleccion' : 'Multiseleccion'}
           </button>
@@ -911,6 +968,10 @@ function renderCalendarGrid() {
       const dateKey = String(card.dataset.dateKey || '');
       const isEditable = String(card.dataset.editable || '') === '1';
       if (!isEditable || !DATE_KEY_REGEX.test(dateKey)) {
+        return;
+      }
+
+      if (state.isBulkApplying) {
         return;
       }
 

@@ -356,6 +356,20 @@ h1 {
   padding: 9px 10px;
 }
 
+.multi-select-bar__feedback {
+  margin: 6px 0 0;
+  font-size: 0.74rem;
+  line-height: 1.2;
+}
+
+.multi-select-bar__feedback.is-success {
+  color: #166534;
+}
+
+.multi-select-bar__feedback.is-error {
+  color: #b91c1c;
+}
+
 .month-nav {
   display: flex;
   align-items: center;
@@ -816,6 +830,10 @@ h1 {
     font-size: 0.74rem;
   }
 
+  .multi-select-bar__feedback {
+    font-size: 0.7rem;
+  }
+
   .calendar-weekday {
     font-size: 0.54rem;
     letter-spacing: 0.02em;
@@ -931,6 +949,10 @@ h1 {
 
   .multi-select-bar__actions .btn {
     font-size: 0.8rem;
+  }
+
+  .multi-select-bar__feedback {
+    font-size: 0.76rem;
   }
 
   .main-container {

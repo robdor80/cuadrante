@@ -438,3 +438,94 @@ export async function saveUserDailyStatus({ monthKey, dateKey, uid, status }) {
   });
 }
 
+export async function applyBulkUserDailyStatus({ monthKey, dateKeys, uid, status }) {
+  if (!isValidMonthKey(monthKey)) {
+    throw new Error('monthKey invalido. Usa YYYY-MM.');
+  }
+
+  const safeUid = String(uid || '').trim();
+  if (!safeUid) {
+    throw new Error('uid invalido.');
+  }
+
+  const allowedStatuses = new Set([DailyStatus.VOY, DailyStatus.NO_VOY]);
+  if (!allowedStatuses.has(status)) {
+    throw new Error('Estado masivo invalido. Solo VOY o NO_VOY.');
+  }
+
+  const uniqueDateKeys = Array.from(
+    new Set(
+      (Array.isArray(dateKeys) ? dateKeys : [])
+        .map((value) => String(value || '').trim())
+        .filter((value) => isValidDateKey(value) && value.startsWith(`${monthKey}-`)),
+    ),
+  );
+
+  if (uniqueDateKeys.length === 0) {
+    return { changed: false };
+  }
+
+  const db = initFirestore();
+  if (!db) {
+    throw new Error('Firestore no configurado.');
+  }
+
+  const monthRef = doc(db, DAILY_STATUS_MONTHS_COLLECTION, monthKey);
+  let hasChanges = false;
+
+  await runTransaction(db, async (tx) => {
+    let localChanges = false;
+    const monthSnap = await tx.get(monthRef);
+    const currentDays = monthSnap.exists() ? normalizeMonthDays(monthSnap.data()?.days) : {};
+    const nextDays = { ...currentDays };
+
+    for (const dateKey of uniqueDateKeys) {
+      const currentDayMap = { ...(nextDays[dateKey] || {}) };
+
+      if (status === DailyStatus.VOY) {
+        if (!Object.prototype.hasOwnProperty.call(currentDayMap, safeUid)) {
+          continue;
+        }
+
+        delete currentDayMap[safeUid];
+        localChanges = true;
+      } else {
+        if (currentDayMap[safeUid] === DailyStatus.NO_VOY) {
+          continue;
+        }
+
+        currentDayMap[safeUid] = DailyStatus.NO_VOY;
+        localChanges = true;
+      }
+
+      if (Object.keys(currentDayMap).length === 0) {
+        delete nextDays[dateKey];
+      } else {
+        nextDays[dateKey] = currentDayMap;
+      }
+    }
+
+    if (!localChanges) {
+      return;
+    }
+
+    hasChanges = true;
+
+    if (monthSnap.exists()) {
+      tx.update(monthRef, {
+        days: nextDays,
+        updatedAt: serverTimestamp(),
+      });
+      return;
+    }
+
+    tx.set(monthRef, {
+      monthKey,
+      days: nextDays,
+      updatedAt: serverTimestamp(),
+    });
+  });
+
+  return { changed: hasChanges };
+}
+
