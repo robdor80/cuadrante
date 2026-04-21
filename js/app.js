@@ -6,7 +6,6 @@ import {
   SHIFT_PATTERN,
   SHIFT_TIMEZONE,
   SLOT_COUNT,
-  isEmailAllowed,
   normalizeEmail,
 } from './config.js';
 import {
@@ -52,6 +51,7 @@ const state = {
   authError: '',
   deniedEmail: '',
   keepDeniedNotice: false,
+  isAccessDeniedHandling: false,
   isSigningIn: false,
   isSigningOut: false,
   authFlowToken: 0,
@@ -318,6 +318,40 @@ function mapAuthErrorMessage(error) {
       return 'Ya habia un intento de login en curso.';
     default:
       return 'Error de autenticacion con Google. Intentalo de nuevo.';
+  }
+}
+
+function isFirestorePermissionDeniedError(error) {
+  const code = String(error?.code || '').toLowerCase();
+  return code === 'permission-denied' || code.endsWith('/permission-denied');
+}
+
+async function handleAccessDeniedFromFirestore(email) {
+  if (state.isAccessDeniedHandling) {
+    return;
+  }
+
+  state.isAccessDeniedHandling = true;
+  state.authFlowToken += 1;
+  state.authStatus = 'unauthenticated';
+  state.authUser = null;
+  state.authError = '';
+  state.deniedEmail = normalizeEmail(email) || '(sin email)';
+  state.keepDeniedNotice = true;
+  resetProfileState();
+
+  if (getCurrentRoute() !== ROUTES.LOGIN) {
+    goTo(ROUTES.LOGIN);
+  }
+
+  refreshCurrentRoute();
+
+  try {
+    await signOutUser();
+  } catch (_error) {
+    // Si falla el signOut remoto mantenemos igualmente la app bloqueada en login.
+  } finally {
+    state.isAccessDeniedHandling = false;
   }
 }
 
@@ -761,7 +795,12 @@ async function handleBulkAction(action) {
     clearMultiSelection({ refresh: false, clearFeedback: false });
     state.bulkActionFeedback = action === DailyStatus.VOY ? 'Aplicado: VOY.' : 'Aplicado: NO VOY.';
     state.bulkActionFeedbackType = 'success';
-  } catch (_error) {
+  } catch (error) {
+    if (isFirestorePermissionDeniedError(error)) {
+      await handleAccessDeniedFromFirestore(state.authUser?.email);
+      return;
+    }
+
     state.bulkActionFeedback = 'No se pudo aplicar.';
     state.bulkActionFeedbackType = 'error';
   } finally {
@@ -1387,9 +1426,14 @@ function ensureMonthListenerForVisibleMonth() {
         ensureSelectedDateKey();
         refreshCurrentRoute();
       },
-      () => {
+      (error) => {
         const currentMonthKey = getMonthKeyFromDate(state.visibleMonthDate);
         if (currentMonthKey !== monthKey) {
+          return;
+        }
+
+        if (isFirestorePermissionDeniedError(error)) {
+          handleAccessDeniedFromFirestore(state.authUser?.email);
           return;
         }
 
@@ -1502,8 +1546,13 @@ async function refreshLegendUsers({ showLoading = false } = {}) {
     state.legendUsers = users;
     state.legendStatus = 'ready';
     state.legendError = '';
-  } catch (_error) {
+  } catch (error) {
     if (!state.authUser || state.authUser.uid !== expectedUid) {
+      return;
+    }
+
+    if (isFirestorePermissionDeniedError(error)) {
+      await handleAccessDeniedFromFirestore(state.authUser.email);
       return;
     }
 
@@ -1608,7 +1657,12 @@ async function handleStatusUpdate(status, targetDateKey = state.dayModalDateKey 
       uid: state.authUser.uid,
       status,
     });
-  } catch (_error) {
+  } catch (error) {
+    if (isFirestorePermissionDeniedError(error)) {
+      await handleAccessDeniedFromFirestore(state.authUser?.email);
+      return;
+    }
+
     state.dayModalError = 'No se pudo guardar el estado diario. Intentalo de nuevo.';
   } finally {
     state.isDailyStatusSaving = false;
@@ -1657,6 +1711,11 @@ async function handleProfileSubmit(event) {
     resetCalendarState();
     await refreshLegendUsers({ showLoading: true });
   } catch (error) {
+    if (isFirestorePermissionDeniedError(error)) {
+      await handleAccessDeniedFromFirestore(state.authUser?.email);
+      return;
+    }
+
     if (error?.code === 'slots/full') {
       state.profileStatus = 'full';
       state.profileError = 'El turno ya tiene 6 integrantes. No quedan plazas libres.';
@@ -1717,8 +1776,13 @@ async function resolveProfileForAuthenticatedUser(firebaseUser) {
       state.legendError = '';
       clearMonthStatusListener();
     }
-  } catch (_error) {
+  } catch (error) {
     if (token !== state.authFlowToken) {
+      return;
+    }
+
+    if (isFirestorePermissionDeniedError(error)) {
+      await handleAccessDeniedFromFirestore(firebaseUser?.email);
       return;
     }
 
@@ -1770,24 +1834,6 @@ async function bootstrap() {
     }
 
     const email = normalizeEmail(firebaseUser.email);
-
-    if (!isEmailAllowed(email)) {
-      state.authFlowToken += 1;
-      state.authStatus = 'unauthenticated';
-      state.authUser = null;
-      state.authError = '';
-      state.deniedEmail = email || '(sin email)';
-      state.keepDeniedNotice = true;
-      resetProfileState();
-
-      if (getCurrentRoute() !== ROUTES.LOGIN) {
-        goTo(ROUTES.LOGIN);
-      }
-
-      refreshCurrentRoute();
-      await signOutUser();
-      return;
-    }
 
     state.authStatus = 'authenticated';
     state.authUser = {

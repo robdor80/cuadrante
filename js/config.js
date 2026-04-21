@@ -49,24 +49,8 @@ export const FIREBASE_CONFIG = Object.freeze({
   appId: "1:970203186839:web:7c743dc31aa28aac97cbd2"
 });
 
-// Parte 2: lista blanca temporal local (sin Firestore).
-// Sustituye estos placeholders por los correos reales permitidos.
-export const ALLOWED_EMAILS = Object.freeze([
-  'rob.dor.80@gmail.com',
-  'ivanvania73@gmail.com',
-  'isidroferg@gmail.com',
-  'nicoriu@gmail.com',
-  'androide.repollo@gmail.com',
-].map(e => e.trim().toLowerCase()));
-
 export function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
-}
-
-const ALLOWED_EMAILS_NORMALIZED = new Set(ALLOWED_EMAILS.map((email) => normalizeEmail(email)));
-
-export function isEmailAllowed(email) {
-  return ALLOWED_EMAILS_NORMALIZED.has(normalizeEmail(email));
 }
 
 // Parte 3: paleta cerrada de colores para el perfil.
