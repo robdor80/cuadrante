@@ -1161,7 +1161,7 @@ function renderCalendarGrid() {
       ${multiSelectBarHtml}
     </section>
     <footer class="app-authorship" aria-label="Autoria de la web">
-      Web creada por Roberto Dorado Rodriguez · 2026
+      Web creada por Roberto Dorado Rodríguez · 2026
     </footer>
   `;
 
