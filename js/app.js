@@ -479,6 +479,18 @@ function getWorkingCountForDate(dateKey) {
   return Math.max(0, SLOT_COUNT - noVoyFallback);
 }
 
+function getAvailabilityClass(workingCount) {
+  if (workingCount <= 3) {
+    return 'availability-low';
+  }
+
+  if (workingCount === 4) {
+    return 'availability-mid';
+  }
+
+  return 'availability-high';
+}
+
 function getCurrentUserStatusForDate(dateKey) {
   if (!state.authUser || !dateKey) {
     return DailyStatus.VOY;
@@ -673,6 +685,10 @@ function renderCalendarGrid() {
       const outsideClass = isCurrentMonth ? '' : ' calendar-day--outside';
       const selectedClass = state.selectedDateKey === dateKey && isEditable ? ' is-selected' : '';
       const workingCount = getWorkingCountForDate(dateKey);
+      const availabilityClass = getAvailabilityClass(workingCount);
+      const availabilityHtml = isWorkShift
+        ? `<div class="calendar-availability-slot ${availabilityClass}" aria-label="Companeros que trabajan">${workingCount}</div>`
+        : '';
       const interactiveAttrs = isEditable
         ? 'role="button" tabindex="0"'
         : 'aria-disabled="true" tabindex="-1"';
@@ -692,7 +708,7 @@ function renderCalendarGrid() {
             <p class="calendar-day-number">${dayNumber}</p>
             <span class="shift-code">${shiftCode}</span>
           </div>
-          <div class="calendar-availability-slot" aria-label="Companeros que trabajan">${workingCount}</div>
+          ${availabilityHtml}
         </article>
       `;
     })

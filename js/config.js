@@ -53,7 +53,9 @@ export const FIREBASE_CONFIG = Object.freeze({
 // Sustituye estos placeholders por los correos reales permitidos.
 export const ALLOWED_EMAILS = Object.freeze([
   'rob.dor.80@gmail.com',
-  'otro_correo@example.com',
+  'ivanvania73@gmail.com',
+  'isidroferg@gmail.com',
+  'nicoriu@gmail.com',
 ].map(e => e.trim().toLowerCase()));
 
 export function normalizeEmail(email) {

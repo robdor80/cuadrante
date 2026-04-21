@@ -587,6 +587,11 @@ h1 {
   padding: 4px;
 }
 
+.calendar-day {
+  display: flex;
+  flex-direction: column;
+}
+
 .calendar-day[data-current-month='1'] {
   cursor: pointer;
 }
@@ -662,19 +667,28 @@ h1 {
 }
 
 .calendar-availability-slot {
-  margin-top: 5px;
-  min-height: 18px;
-  padding: 2px 6px;
-  border-radius: 6px;
-  border: 1px solid rgba(31, 41, 55, 0.2);
-  background: rgba(255, 255, 255, 0.35);
+  margin-top: 6px;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   line-height: 1.1;
   font-size: 0.96rem;
   font-weight: 800;
-  color: #1f3952;
+}
+
+.calendar-availability-slot.availability-high {
+  color: #111827;
+}
+
+.calendar-availability-slot.availability-mid {
+  color: #c2410c;
+}
+
+.calendar-availability-slot.availability-low {
+  color: #b91c1c;
 }
 
 @media (max-width: 359px) {
@@ -726,8 +740,7 @@ h1 {
   }
 
   .calendar-availability-slot {
-    min-height: 14px;
-    padding: 1px 3px;
+    margin-top: 4px;
     font-size: 0.86rem;
   }
 
@@ -826,7 +839,7 @@ h1 {
   }
 
   .calendar-availability-slot {
-    min-height: 17px;
+    margin-top: 7px;
     font-size: 0.94rem;
   }
 
@@ -872,7 +885,7 @@ h1 {
   }
 
   .calendar-availability-slot {
-    min-height: 18px;
+    margin-top: 8px;
     font-size: 0.98rem;
   }
 
@@ -916,7 +929,7 @@ h1 {
   }
 
   .calendar-availability-slot {
-    min-height: 19px;
+    margin-top: 9px;
     font-size: 1.04rem;
   }
 
