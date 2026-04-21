@@ -80,6 +80,8 @@ const state = {
   dayModalOpen: false,
   dayModalDateKey: '',
   dayModalError: '',
+  isMultiSelectMode: false,
+  multiSelectedDateKeys: new Set(),
 };
 
 function normalizeRouteFromHash(hashValue) {
@@ -205,6 +207,39 @@ function closeDayModal({ skipRefresh = false } = {}) {
   }
 }
 
+function clearMultiSelection({ refresh = false } = {}) {
+  state.multiSelectedDateKeys = new Set();
+  if (refresh) {
+    refreshCurrentRoute();
+  }
+}
+
+function setMultiSelectMode(enabled) {
+  const nextValue = Boolean(enabled);
+  if (state.isMultiSelectMode === nextValue) {
+    return;
+  }
+
+  state.isMultiSelectMode = nextValue;
+  clearMultiSelection({ refresh: false });
+
+  if (nextValue && state.dayModalOpen) {
+    closeDayModal({ skipRefresh: true });
+  }
+}
+
+function toggleMultiSelectedDate(dateKey) {
+  if (!DATE_KEY_REGEX.test(dateKey)) {
+    return;
+  }
+
+  if (state.multiSelectedDateKeys.has(dateKey)) {
+    state.multiSelectedDateKeys.delete(dateKey);
+  } else {
+    state.multiSelectedDateKeys.add(dateKey);
+  }
+}
+
 function openDayModal(dateKey) {
   if (!isDateKeyInVisibleMonth(dateKey)) {
     return;
@@ -221,6 +256,7 @@ function openDayModal(dateKey) {
 function resetCalendarState() {
   clearMonthStatusListener();
   closeDayModal({ skipRefresh: true });
+  setMultiSelectMode(false);
   state.visibleMonthDate = getMonthStartDate(new Date());
   state.visibleMonthKey = getMonthKeyFromDate(state.visibleMonthDate);
   state.selectedDateKey = getDefaultSelectedDateKeyForVisibleMonth();
@@ -683,7 +719,9 @@ function renderCalendarGrid() {
       const isWorkShift = shiftKind !== 'libre';
       const isEditable = isCurrentMonth && isWorkShift;
       const outsideClass = isCurrentMonth ? '' : ' calendar-day--outside';
-      const selectedClass = state.selectedDateKey === dateKey && isEditable ? ' is-selected' : '';
+      const selectedClass =
+        !state.isMultiSelectMode && state.selectedDateKey === dateKey && isEditable ? ' is-selected' : '';
+      const multiSelectedClass = state.isMultiSelectMode && state.multiSelectedDateKeys.has(dateKey) ? ' is-multi-selected' : '';
       const workingCount = getWorkingCountForDate(dateKey);
       const availabilityClass = getAvailabilityClass(workingCount);
       const availabilityHtml = isWorkShift
@@ -696,7 +734,9 @@ function renderCalendarGrid() {
 
       return `
         <article
-          class="calendar-day ${shiftToneClass}${outsideClass}${selectedClass} ${dateKey === todayKey ? 'is-today' : ''}"
+          class="calendar-day ${shiftToneClass}${outsideClass}${selectedClass}${multiSelectedClass} ${
+            dateKey === todayKey ? 'is-today' : ''
+          }"
           title="${escapeHtml(dateKey)} | ciclo ${cycleDay}/12"
           data-date-key="${escapeHtml(dateKey)}"
           data-current-month="${isCurrentMonth ? '1' : '0'}"
@@ -719,6 +759,10 @@ function renderCalendarGrid() {
     return `<div class="calendar-weekday" data-short="${shortLabel}">${label}</div>`;
   }).join('');
   const dayModalHtml = buildDayModalHtml();
+  const selectedCount = state.multiSelectedDateKeys.size;
+  const multiModeInfo = state.isMultiSelectMode
+    ? `<p class="calendar-multi-meta muted">Modo multiseleccion activo · ${selectedCount} dia${selectedCount === 1 ? '' : 's'} seleccionados</p>`
+    : '';
 
   appRoot.innerHTML = `
     <section class="panel">
@@ -730,6 +774,17 @@ function renderCalendarGrid() {
             <button id="month-next-btn" type="button" class="btn btn-secondary btn-month-nav" aria-label="Mes siguiente">&rsaquo;</button>
           </div>
           ${getDailyStatusInfoHtml()}
+        </div>
+        <div class="calendar-header-tools">
+          <button
+            id="toggle-multi-select-btn"
+            type="button"
+            class="btn btn-secondary btn-multi-select ${state.isMultiSelectMode ? 'is-active' : ''}"
+            aria-pressed="${state.isMultiSelectMode ? 'true' : 'false'}"
+          >
+            ${state.isMultiSelectMode ? 'Salir multiseleccion' : 'Multiseleccion'}
+          </button>
+          ${multiModeInfo}
         </div>
       </div>
 
@@ -757,12 +812,26 @@ function renderCalendarGrid() {
     nextButton.addEventListener('click', () => handleMonthNavigation(1));
   }
 
+  const toggleMultiSelectButton = document.getElementById('toggle-multi-select-btn');
+  if (toggleMultiSelectButton) {
+    toggleMultiSelectButton.addEventListener('click', () => {
+      setMultiSelectMode(!state.isMultiSelectMode);
+      refreshCurrentRoute();
+    });
+  }
+
   const dayCards = document.querySelectorAll('.calendar-day[data-date-key]');
   dayCards.forEach((card) => {
     const onSelect = () => {
       const dateKey = String(card.dataset.dateKey || '');
       const isEditable = String(card.dataset.editable || '') === '1';
       if (!isEditable || !DATE_KEY_REGEX.test(dateKey)) {
+        return;
+      }
+
+      if (state.isMultiSelectMode) {
+        toggleMultiSelectedDate(dateKey);
+        refreshCurrentRoute();
         return;
       }
 
@@ -986,6 +1055,10 @@ function renderCalendar() {
 
 function renderRoute(route) {
   renderHeaderActions();
+  if (route !== ROUTES.CALENDAR && state.isMultiSelectMode) {
+    setMultiSelectMode(false);
+  }
+
   if (route !== ROUTES.CALENDAR && state.dayModalOpen) {
     closeDayModal({ skipRefresh: true });
   }
@@ -1103,6 +1176,7 @@ async function handleLogout() {
 
 function handleMonthNavigation(delta) {
   closeDayModal({ skipRefresh: true });
+  clearMultiSelection({ refresh: false });
   state.visibleMonthDate = addMonths(state.visibleMonthDate, delta);
   state.visibleMonthKey = getMonthKeyFromDate(state.visibleMonthDate);
   state.selectedDateKey = getDefaultSelectedDateKeyForVisibleMonth();
