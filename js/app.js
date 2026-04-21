@@ -625,7 +625,7 @@ function buildDayModalHtml() {
           </article>
           <article class="day-modal-column">
             <h4>No trabajan</h4>
-            ${buildModalUserList(buckets.noVoy, 'Nadie en NO_VOY.')}
+            ${buildModalUserList(buckets.noVoy, 'Nadie libra.')}
           </article>
           <article class="day-modal-column">
             <h4>Vialia</h4>
