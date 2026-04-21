@@ -751,6 +751,7 @@ h1 {
 
 .calendar-day[data-current-month='1'] {
   cursor: pointer;
+  filter: saturate(1.08) contrast(1.02);
 }
 
 .calendar-day[data-current-month='0'] {
@@ -774,8 +775,8 @@ h1 {
 }
 
 .calendar-day--outside {
-  opacity: 0.58;
-  filter: saturate(0.7);
+  opacity: 0.44;
+  filter: saturate(0.5) brightness(1.03);
 }
 
 .calendar-cell-empty {
