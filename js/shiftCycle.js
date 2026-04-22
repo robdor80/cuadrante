@@ -6,13 +6,13 @@ const CALENDAR_GRID_SIZE = 42;
 function normalizeDateKey(input) {
   if (typeof input === 'string') {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(input)) {
-      throw new Error('Fecha invalida. Formato esperado: YYYY-MM-DD');
+      throw new Error('Fecha inválida. Formato esperado: YYYY-MM-DD');
     }
     return input;
   }
 
   if (!(input instanceof Date) || Number.isNaN(input.getTime())) {
-    throw new Error('Fecha invalida. Usa Date o YYYY-MM-DD.');
+    throw new Error('Fecha inválida. Usa Date o YYYY-MM-DD.');
   }
 
   return new Intl.DateTimeFormat('en-CA', {

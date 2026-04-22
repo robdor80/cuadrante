@@ -90,7 +90,7 @@ function normalizeMonthDays(rawDays) {
 
 export function initFirebase() {
   if (!hasValidConfig()) {
-    console.info('Firebase no configurado aun. Se activara en fases posteriores.');
+    console.info('Firebase no configurado aún. Se activará en fases posteriores.');
     return null;
   }
 
@@ -340,7 +340,7 @@ export async function createUserProfileWithAutoSlot({ uid, email, name, color })
 
 export function subscribeMonthDailyStatuses(monthKey, onData, onError) {
   if (!isValidMonthKey(monthKey)) {
-    throw new Error('monthKey invalido. Usa YYYY-MM.');
+    throw new Error('monthKey inválido. Usa YYYY-MM.');
   }
 
   const db = initFirestore();
@@ -378,11 +378,11 @@ export function subscribeMonthDailyStatuses(monthKey, onData, onError) {
 
 export async function saveUserDailyStatus({ monthKey, dateKey, uid, status }) {
   if (!isValidMonthKey(monthKey)) {
-    throw new Error('monthKey invalido. Usa YYYY-MM.');
+    throw new Error('monthKey inválido. Usa YYYY-MM.');
   }
 
   if (!isValidDateKey(dateKey)) {
-    throw new Error('dateKey invalido. Usa YYYY-MM-DD.');
+    throw new Error('dateKey inválido. Usa YYYY-MM-DD.');
   }
 
   if (!dateKey.startsWith(`${monthKey}-`)) {
@@ -391,12 +391,12 @@ export async function saveUserDailyStatus({ monthKey, dateKey, uid, status }) {
 
   const safeUid = String(uid || '').trim();
   if (!safeUid) {
-    throw new Error('uid invalido.');
+    throw new Error('uid inválido.');
   }
 
   const statusSet = new Set([DailyStatus.VOY, DailyStatus.NO_VOY, DailyStatus.VIALIA]);
   if (!statusSet.has(status)) {
-    throw new Error('Estado diario invalido.');
+    throw new Error('Estado diario inválido.');
   }
 
   const db = initFirestore();
@@ -440,17 +440,17 @@ export async function saveUserDailyStatus({ monthKey, dateKey, uid, status }) {
 
 export async function applyBulkUserDailyStatus({ monthKey, dateKeys, uid, status }) {
   if (!isValidMonthKey(monthKey)) {
-    throw new Error('monthKey invalido. Usa YYYY-MM.');
+    throw new Error('monthKey inválido. Usa YYYY-MM.');
   }
 
   const safeUid = String(uid || '').trim();
   if (!safeUid) {
-    throw new Error('uid invalido.');
+    throw new Error('uid inválido.');
   }
 
   const allowedStatuses = new Set([DailyStatus.VOY, DailyStatus.NO_VOY]);
   if (!allowedStatuses.has(status)) {
-    throw new Error('Estado masivo invalido. Solo VOY o NO_VOY.');
+    throw new Error('Estado masivo inválido. Solo VOY o NO_VOY.');
   }
 
   const uniqueDateKeys = Array.from(
