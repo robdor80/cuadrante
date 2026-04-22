@@ -139,7 +139,7 @@ h1 {
 }
 
 .header-menu {
-  display: none;
+  display: inline-flex;
   align-items: center;
   gap: 2px;
 }
@@ -173,6 +173,16 @@ h1 {
 .header-menu-item:disabled {
   opacity: 0.56;
   cursor: not-allowed;
+}
+
+.header-menu-item--settings {
+  display: none;
+}
+
+.header-menu-item--logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .header-user {
@@ -1404,11 +1414,11 @@ h1 {
     display: none;
   }
 
-  .header-logout-mobile {
-    display: none;
+  .header-menu {
+    display: inline-flex;
   }
 
-  .header-menu {
+  .header-menu-item--settings {
     display: inline-flex;
   }
 }

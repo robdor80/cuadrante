@@ -500,7 +500,7 @@ function renderHeaderActions() {
       <nav class="header-menu" aria-label="Menu principal">
         <button
           id="header-settings-btn"
-          class="header-menu-item"
+          class="header-menu-item header-menu-item--settings"
           type="button"
           ${state.isSigningOut ? 'disabled' : ''}
         >
@@ -508,38 +508,22 @@ function renderHeaderActions() {
         </button>
         <button
           id="header-logout-menu-btn"
-          class="header-menu-item"
+          class="header-menu-item header-menu-item--logout"
           type="button"
-          aria-label="Cerrar sesión"
+          aria-label="Cerrar sesion"
           ${state.isSigningOut ? 'disabled' : ''}
         >
-          ${state.isSigningOut ? 'Saliendo...' : 'Salir'}
+          <span class="logout-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M13 4H6.8A1.8 1.8 0 0 0 5 5.8v12.4A1.8 1.8 0 0 0 6.8 20H13" />
+              <path d="M14 12h7" />
+              <path d="m18 8 4 4-4 4" />
+            </svg>
+          </span>
+          <span class="logout-label">${state.isSigningOut ? 'Saliendo...' : 'Salir'}</span>
         </button>
       </nav>
-      <button
-        id="header-logout-btn"
-        class="btn btn-header btn-logout-ghost header-logout-mobile"
-        type="button"
-        aria-label="Cerrar sesión"
-        ${
-        state.isSigningOut ? 'disabled' : ''
-      }
-      >
-        <span class="logout-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-            <path d="M13 4H6.8A1.8 1.8 0 0 0 5 5.8v12.4A1.8 1.8 0 0 0 6.8 20H13" />
-            <path d="M14 12h7" />
-            <path d="m18 8 4 4-4 4" />
-          </svg>
-        </span>
-        <span class="logout-label">${state.isSigningOut ? 'Saliendo...' : 'Salir'}</span>
-      </button>
     `;
-
-    const headerLogoutButton = document.getElementById('header-logout-btn');
-    if (headerLogoutButton) {
-      headerLogoutButton.addEventListener('click', handleLogout);
-    }
 
     const headerLogoutMenuButton = document.getElementById('header-logout-menu-btn');
     if (headerLogoutMenuButton) {
