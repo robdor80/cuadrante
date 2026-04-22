@@ -1,4 +1,4 @@
-﻿export const APP_NAME = 'Cuadrante';
+export const APP_NAME = 'Cuadrante';
 export const BASE_PATH = '/cuadrante/';
 
 export const ROUTES = Object.freeze({
@@ -41,12 +41,12 @@ export const DAILY_STATUS_MARKERS = Object.freeze({});
 // FIREBASE CONFIG (REAL)
 // ===============================
 export const FIREBASE_CONFIG = Object.freeze({
-  apiKey: "AIzaSyD4BGJvsVYYo6imLHqNgAMX5y6vnZ7mqt0",
-  authDomain: "cuadrante-99569.firebaseapp.com",
-  projectId: "cuadrante-99569",
-  storageBucket: "cuadrante-99569.firebasestorage.app",
-  messagingSenderId: "970203186839",
-  appId: "1:970203186839:web:7c743dc31aa28aac97cbd2"
+  apiKey: 'AIzaSyD4BGJvsVYYo6imLHqNgAMX5y6vnZ7mqt0',
+  authDomain: 'cuadrante-99569.firebaseapp.com',
+  projectId: 'cuadrante-99569',
+  storageBucket: 'cuadrante-99569.firebasestorage.app',
+  messagingSenderId: '970203186839',
+  appId: '1:970203186839:web:7c743dc31aa28aac97cbd2',
 });
 
 export function normalizeEmail(email) {
