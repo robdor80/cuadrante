@@ -739,6 +739,125 @@ h1 {
   color: #70849a;
 }
 
+.settings-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1210;
+  background: rgba(15, 23, 42, 0.46);
+  backdrop-filter: blur(1.5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  animation: modal-fade-in 0.16s ease-out;
+}
+
+.settings-modal-card {
+  width: min(560px, 100%);
+  max-height: calc(100vh - 28px);
+  overflow: auto;
+  background: #ffffff;
+  border: 1px solid #dbe4ec;
+  border-radius: 16px;
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.22);
+  padding: 12px;
+  animation: modal-scale-in 0.16s ease-out;
+}
+
+.settings-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.settings-modal-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.settings-modal-body {
+  margin-top: 10px;
+}
+
+.settings-menu-list {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-menu-item {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.settings-modal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-bottom: 8px;
+}
+
+.settings-back-btn {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+}
+
+.settings-user-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.settings-user-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border: 1px solid #dbe4ec;
+  border-radius: 10px;
+  background: #f9fbfd;
+}
+
+.settings-user-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.22);
+  background: var(--settings-user-color, #1d4ed8);
+  flex: 0 0 auto;
+}
+
+.settings-user-main {
+  min-width: 0;
+}
+
+.settings-user-name {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #243f59;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-user-meta {
+  margin: 2px 0 0;
+  font-size: 0.74rem;
+  color: #56708a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-modal-empty {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
 .day-modal-overlay {
   position: fixed;
   inset: 0;
@@ -1288,6 +1407,20 @@ h1 {
     border-radius: 12px;
     padding: 10px;
   }
+
+  .settings-modal-overlay {
+    padding: 8px;
+  }
+
+  .settings-modal-card {
+    max-height: calc(100vh - 16px);
+    border-radius: 12px;
+    padding: 10px;
+  }
+
+  .settings-user-item {
+    padding: 7px 8px;
+  }
 }
 
 @media (max-width: 767px) {
@@ -1475,6 +1608,10 @@ h1 {
 
   .btn-status {
     font-size: 0.8rem;
+  }
+
+  .settings-modal-card {
+    padding: 14px;
   }
 
   .legend-list {
