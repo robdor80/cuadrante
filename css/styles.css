@@ -1291,6 +1291,17 @@ h1 {
   }
 }
 
+@media (max-width: 767px) {
+  .header-menu-item--logout .logout-label {
+    order: 1;
+  }
+
+  .header-menu-item--logout .logout-icon {
+    order: 2;
+    margin-left: auto;
+  }
+}
+
 @media (max-width: 599px) {
   .calendar-header-tools {
     width: 100%;
