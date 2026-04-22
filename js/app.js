@@ -91,6 +91,12 @@ const state = {
   rangeEndDateKey: '',
   rangeFeedback: '',
   rangeFeedbackType: '',
+  isOnline: typeof navigator === 'undefined' ? true : navigator.onLine,
+  toastCurrent: null,
+  toastQueue: [],
+  toastTimerId: null,
+  toastLastKey: '',
+  toastLastAt: 0,
 };
 
 function normalizeRouteFromHash(hashValue) {
@@ -118,6 +124,110 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function ensureGlobalFeedbackRoot() {
+  let root = document.getElementById('global-feedback-root');
+  if (root) {
+    return root;
+  }
+
+  root = document.createElement('div');
+  root.id = 'global-feedback-root';
+  root.className = 'global-feedback-root';
+  root.setAttribute('aria-live', 'polite');
+  root.setAttribute('aria-atomic', 'true');
+  document.body.appendChild(root);
+  return root;
+}
+
+function getToastDurationByType(type) {
+  switch (type) {
+    case 'success':
+      return 2000;
+    case 'warning':
+      return 2800;
+    case 'error':
+      return 3400;
+    default:
+      return 2200;
+  }
+}
+
+function renderGlobalFeedbackUI() {
+  const root = ensureGlobalFeedbackRoot();
+  const offlineBadgeHtml = !state.isOnline
+    ? '<div class="connection-badge connection-badge--offline" role="status">Sin conexion</div>'
+    : '';
+  const toast = state.toastCurrent;
+  const toastHtml = toast
+    ? `
+      <div class="toast-stack">
+        <div class="app-toast app-toast--${escapeHtml(toast.type || 'info')}" role="status">
+          ${escapeHtml(toast.message)}
+        </div>
+      </div>
+    `
+    : '';
+
+  root.innerHTML = `${offlineBadgeHtml}${toastHtml}`;
+}
+
+function clearToastTimer() {
+  if (state.toastTimerId) {
+    window.clearTimeout(state.toastTimerId);
+    state.toastTimerId = null;
+  }
+}
+
+function runNextToastInQueue() {
+  if (state.toastCurrent || !state.toastQueue.length) {
+    renderGlobalFeedbackUI();
+    return;
+  }
+
+  const nextToast = state.toastQueue.shift();
+  if (!nextToast) {
+    renderGlobalFeedbackUI();
+    return;
+  }
+
+  state.toastCurrent = nextToast;
+  state.toastLastKey = nextToast.key;
+  state.toastLastAt = Date.now();
+  renderGlobalFeedbackUI();
+
+  clearToastTimer();
+  state.toastTimerId = window.setTimeout(() => {
+    state.toastCurrent = null;
+    state.toastTimerId = null;
+    renderGlobalFeedbackUI();
+    runNextToastInQueue();
+  }, nextToast.duration);
+}
+
+function showToast({ type = 'info', message, duration } = {}) {
+  const safeMessage = String(message || '').trim();
+  if (!safeMessage) {
+    return;
+  }
+
+  const toastType = ['success', 'error', 'info', 'warning'].includes(type) ? type : 'info';
+  const toastKey = `${toastType}:${safeMessage}`;
+  const now = Date.now();
+  const dedupeWindowMs = 1200;
+
+  if (state.toastLastKey === toastKey && now - state.toastLastAt < dedupeWindowMs) {
+    return;
+  }
+
+  state.toastQueue.push({
+    key: toastKey,
+    type: toastType,
+    message: safeMessage,
+    duration: Number.isFinite(duration) ? duration : getToastDurationByType(toastType),
+  });
+  runNextToastInQueue();
 }
 
 function getDateKey(dateValue) {
@@ -807,6 +917,10 @@ async function handleBulkAction(action) {
     clearMultiSelection({ refresh: false, clearFeedback: false });
     state.bulkActionFeedback = action === DailyStatus.VOY ? 'Aplicado: VOY.' : 'Aplicado: NO VOY.';
     state.bulkActionFeedbackType = 'success';
+    showToast({
+      type: 'success',
+      message: action === DailyStatus.VOY ? 'Cambios aplicados: VOY.' : 'Cambios aplicados: NO VOY.',
+    });
   } catch (error) {
     if (isFirestorePermissionDeniedError(error)) {
       await handleAccessDeniedFromFirestore(state.authUser?.email);
@@ -815,6 +929,7 @@ async function handleBulkAction(action) {
 
     state.bulkActionFeedback = 'No se pudo aplicar.';
     state.bulkActionFeedbackType = 'error';
+    showToast({ type: 'error', message: 'No se pudieron aplicar los cambios.' });
   } finally {
     state.isBulkApplying = false;
     refreshCurrentRoute();
@@ -1553,6 +1668,7 @@ function renderRoute(route) {
 
 function refreshCurrentRoute() {
   renderRoute(getCurrentRoute());
+  renderGlobalFeedbackUI();
 }
 
 async function refreshLegendUsers({ showLoading = false } = {}) {
@@ -1638,8 +1754,10 @@ async function handleLogout() {
 
   try {
     await signOutUser();
+    showToast({ type: 'info', message: 'Sesion cerrada.' });
   } catch (_error) {
     state.authError = 'No se pudo cerrar sesion. Intentalo de nuevo.';
+    showToast({ type: 'error', message: 'No se pudo cerrar sesion.' });
   } finally {
     state.isSigningOut = false;
     refreshCurrentRoute();
@@ -1693,6 +1811,7 @@ async function handleStatusUpdate(status, targetDateKey = state.dayModalDateKey 
       uid: state.authUser.uid,
       status,
     });
+    showToast({ type: 'success', message: 'Estado actualizado.' });
     closeDayModal({ skipRefresh: true });
   } catch (error) {
     if (isFirestorePermissionDeniedError(error)) {
@@ -1701,6 +1820,7 @@ async function handleStatusUpdate(status, targetDateKey = state.dayModalDateKey 
     }
 
     state.dayModalError = 'No se pudo guardar el estado diario. Intentalo de nuevo.';
+    showToast({ type: 'error', message: 'No se pudo guardar el estado.' });
   } finally {
     state.isDailyStatusSaving = false;
     refreshCurrentRoute();
@@ -1861,6 +1981,26 @@ async function bootstrap() {
     syncMonthRealtimeSubscription({ preserveData: true });
   });
 
+  window.addEventListener('offline', () => {
+    if (!state.isOnline) {
+      return;
+    }
+
+    state.isOnline = false;
+    renderGlobalFeedbackUI();
+    showToast({ type: 'warning', message: 'Sin conexion.' });
+  });
+
+  window.addEventListener('online', () => {
+    if (state.isOnline) {
+      return;
+    }
+
+    state.isOnline = true;
+    renderGlobalFeedbackUI();
+    showToast({ type: 'success', message: 'Conexion recuperada.' });
+  });
+
   const router = createHashRouter({
     routeHandlers: {
       [ROUTES.HOME]: () => renderRoute(ROUTES.HOME),
@@ -1911,6 +2051,7 @@ async function bootstrap() {
   }
 
   router.start();
+  renderGlobalFeedbackUI();
 }
 
 bootstrap();
