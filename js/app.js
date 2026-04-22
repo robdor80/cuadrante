@@ -78,6 +78,7 @@ const state = {
   isDailyStatusSaving: false,
   monthListenerKey: '',
   unsubscribeMonthStatuses: null,
+  isDocumentVisible: typeof document === 'undefined' ? true : document.visibilityState !== 'hidden',
   dayModalOpen: false,
   dayModalDateKey: '',
   dayModalError: '',
@@ -218,6 +219,17 @@ function clearMonthStatusListener() {
 
   state.unsubscribeMonthStatuses = null;
   state.monthListenerKey = '';
+}
+
+function shouldHaveActiveMonthRealtimeListener() {
+  return (
+    state.authStatus === 'authenticated' &&
+    state.profileStatus === 'ready' &&
+    Boolean(state.authUser) &&
+    state.isDocumentVisible &&
+    !state.isAccessDeniedHandling &&
+    getCurrentRoute() === ROUTES.CALENDAR
+  );
 }
 
 function closeDayModal({ skipRefresh = false } = {}) {
@@ -1393,7 +1405,7 @@ function renderProfileError() {
   }
 }
 
-function ensureMonthListenerForVisibleMonth() {
+function ensureMonthListenerForVisibleMonth({ preserveData = false } = {}) {
   if (state.authStatus !== 'authenticated' || state.profileStatus !== 'ready' || !state.authUser) {
     return;
   }
@@ -1407,9 +1419,14 @@ function ensureMonthListenerForVisibleMonth() {
 
   clearMonthStatusListener();
   state.monthListenerKey = monthKey;
-  state.dailyStatusByDate = {};
-  state.dailyStatusStatus = 'loading';
-  state.dailyStatusError = '';
+  const shouldKeepLoadedData = preserveData && state.dailyStatusStatus === 'ready';
+  if (shouldKeepLoadedData) {
+    state.dailyStatusError = '';
+  } else {
+    state.dailyStatusByDate = {};
+    state.dailyStatusStatus = 'loading';
+    state.dailyStatusError = '';
+  }
 
   try {
     state.unsubscribeMonthStatuses = subscribeMonthDailyStatuses(
@@ -1444,10 +1461,24 @@ function ensureMonthListenerForVisibleMonth() {
       },
     );
   } catch (_error) {
+    if (shouldKeepLoadedData) {
+      state.dailyStatusError = 'No se pudo iniciar el listener del mes visible.';
+      return;
+    }
+
     state.dailyStatusByDate = {};
     state.dailyStatusStatus = 'error';
     state.dailyStatusError = 'No se pudo iniciar el listener del mes visible.';
   }
+}
+
+function syncMonthRealtimeSubscription({ preserveData = false } = {}) {
+  if (!shouldHaveActiveMonthRealtimeListener()) {
+    clearMonthStatusListener();
+    return;
+  }
+
+  ensureMonthListenerForVisibleMonth({ preserveData });
 }
 
 function renderCalendar() {
@@ -1475,7 +1506,7 @@ function renderCalendar() {
       renderProfileError();
       return;
     case 'ready':
-      ensureMonthListenerForVisibleMonth();
+      syncMonthRealtimeSubscription({ preserveData: true });
       renderCalendarGrid();
       return;
     default:
@@ -1513,6 +1544,10 @@ function renderRoute(route) {
     default:
       renderHomeInfo();
       break;
+  }
+
+  if (route !== ROUTES.CALENDAR) {
+    syncMonthRealtimeSubscription();
   }
 }
 
@@ -1595,6 +1630,7 @@ async function handleLogout() {
   }
 
   state.isSigningOut = true;
+  clearMonthStatusListener();
   state.authError = '';
   state.deniedEmail = '';
   state.keepDeniedNotice = false;
@@ -1618,7 +1654,7 @@ function handleMonthNavigation(delta) {
   state.visibleMonthKey = getMonthKeyFromDate(state.visibleMonthDate);
   state.selectedDateKey = getDefaultSelectedDateKeyForVisibleMonth();
   state.dayModalError = '';
-  ensureMonthListenerForVisibleMonth();
+  syncMonthRealtimeSubscription({ preserveData: false });
   refreshCurrentRoute();
 }
 
@@ -1797,11 +1833,32 @@ async function resolveProfileForAuthenticatedUser(firebaseUser) {
 async function bootstrap() {
   initFirebase();
 
+  state.isDocumentVisible = document.visibilityState !== 'hidden';
+
   window.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && state.dayModalOpen) {
       event.preventDefault();
       closeDayModal();
     }
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    const isVisibleNow = document.visibilityState !== 'hidden';
+    if (state.isDocumentVisible === isVisibleNow) {
+      return;
+    }
+
+    state.isDocumentVisible = isVisibleNow;
+    syncMonthRealtimeSubscription({ preserveData: isVisibleNow });
+  });
+
+  window.addEventListener('pageshow', () => {
+    if (document.visibilityState === 'hidden') {
+      return;
+    }
+
+    state.isDocumentVisible = true;
+    syncMonthRealtimeSubscription({ preserveData: true });
   });
 
   const router = createHashRouter({
