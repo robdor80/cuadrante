@@ -115,6 +115,7 @@ body.modal-open {
   flex-direction: column;
   align-items: stretch;
   gap: 8px;
+  position: relative;
 }
 
 .site-header__title {
@@ -136,14 +137,14 @@ h1 {
 
 .site-header__actions--session {
   justify-content: space-between;
-  position: relative;
+  position: static;
 }
 
 .header-menu {
   display: none;
   position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
+  right: 16px;
+  top: 44px;
   z-index: 30;
   flex-direction: column;
   align-items: stretch;
@@ -174,6 +175,10 @@ h1 {
   justify-content: center;
   gap: 4px;
   cursor: pointer;
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  z-index: 31;
 }
 
 .header-mobile-menu-toggle:hover:not(:disabled) {
@@ -230,13 +235,14 @@ h1 {
   cursor: not-allowed;
 }
 
-.header-menu-item--settings {
-  display: none;
-}
-
+.header-menu-item--settings,
 .header-menu-item--logout {
   display: inline-flex;
   align-items: center;
+  justify-content: flex-start;
+}
+
+.header-menu-item--logout {
   gap: 6px;
 }
 
@@ -1131,6 +1137,19 @@ h1 {
     padding: 10px 12px;
   }
 
+  .header-mobile-menu-toggle {
+    top: 10px;
+    right: 12px;
+    min-height: 34px;
+    min-width: 40px;
+    padding: 6px 8px;
+  }
+
+  .header-menu {
+    right: 12px;
+    top: 40px;
+  }
+
   h1 {
     font-size: 1.08rem;
   }
@@ -1492,7 +1511,7 @@ h1 {
   }
 
   .header-menu-item--settings {
-    display: inline-flex;
+    justify-content: center;
   }
 }
 
