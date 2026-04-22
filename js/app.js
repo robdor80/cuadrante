@@ -1222,7 +1222,11 @@ function buildDayModalHtml() {
               VIALIA
             </button>
           </div>
-          ${!vialiaAllowed ? '<p class="muted day-modal-hint">Solo disponible en tardes laborables.</p>' : ''}
+          ${
+            !vialiaAllowed
+              ? '<p class="muted day-modal-hint">Vialia solo esta disponible en tardes laborables.</p>'
+              : ''
+          }
           ${state.dayModalError ? `<p class="auth-message auth-message--error">${escapeHtml(state.dayModalError)}</p>` : ''}
           ${state.isDailyStatusSaving ? '<p class="muted day-modal-hint">Guardando estado...</p>' : ''}
         </section>
@@ -1790,7 +1794,7 @@ async function handleStatusUpdate(status, targetDateKey = state.dayModalDateKey 
   }
 
   if (status === DailyStatus.VIALIA && !isVialiaAllowedForDate(targetDateKey)) {
-    state.dayModalError = 'VIALIA solo disponible en tardes laborables.';
+    state.dayModalError = 'Vialia solo esta disponible en tardes laborables.';
     refreshCurrentRoute();
     return;
   }
