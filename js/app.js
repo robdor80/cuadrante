@@ -91,6 +91,7 @@ const state = {
   rangeEndDateKey: '',
   rangeFeedback: '',
   rangeFeedbackType: '',
+  headerMobileMenuOpen: false,
   isOnline: typeof navigator === 'undefined' ? true : navigator.onLine,
   toastCurrent: null,
   toastQueue: [],
@@ -497,7 +498,19 @@ function renderHeaderActions() {
         <span class="header-user-dot" style="--header-user-color:${escapeHtml(getHeaderUserColor())}"></span>
         <span class="header-user-name">${escapeHtml(getHeaderUserName())}</span>
       </div>
-      <nav class="header-menu" aria-label="Menu principal">
+      <button
+        id="header-mobile-menu-toggle"
+        class="header-mobile-menu-toggle"
+        type="button"
+        aria-label="Abrir menu"
+        aria-expanded="${state.headerMobileMenuOpen ? 'true' : 'false'}"
+        ${state.isSigningOut ? 'disabled' : ''}
+      >
+        <span class="header-mobile-menu-line"></span>
+        <span class="header-mobile-menu-line"></span>
+        <span class="header-mobile-menu-line"></span>
+      </button>
+      <nav class="header-menu ${state.headerMobileMenuOpen ? 'is-open' : ''}" aria-label="Menu principal">
         <button
           id="header-settings-btn"
           class="header-menu-item header-menu-item--settings"
@@ -510,7 +523,7 @@ function renderHeaderActions() {
           id="header-logout-menu-btn"
           class="header-menu-item header-menu-item--logout"
           type="button"
-          aria-label="Cerrar sesion"
+          aria-label="Cerrar sesión"
           ${state.isSigningOut ? 'disabled' : ''}
         >
           <span class="logout-icon" aria-hidden="true">
@@ -530,9 +543,19 @@ function renderHeaderActions() {
       headerLogoutMenuButton.addEventListener('click', handleLogout);
     }
 
+    const headerMobileMenuToggle = document.getElementById('header-mobile-menu-toggle');
+    if (headerMobileMenuToggle) {
+      headerMobileMenuToggle.addEventListener('click', () => {
+        state.headerMobileMenuOpen = !state.headerMobileMenuOpen;
+        refreshCurrentRoute();
+      });
+    }
+
     const headerSettingsButton = document.getElementById('header-settings-btn');
     if (headerSettingsButton) {
       headerSettingsButton.addEventListener('click', () => {
+        state.headerMobileMenuOpen = false;
+        refreshCurrentRoute();
         showToast({ type: 'info', message: 'Ajustes proximamente.' });
       });
     }
@@ -540,6 +563,7 @@ function renderHeaderActions() {
   }
 
   headerActionsRoot.classList.remove('site-header__actions--session');
+  state.headerMobileMenuOpen = false;
   headerActionsRoot.innerHTML = '';
 }
 
@@ -1764,6 +1788,7 @@ async function handleLogout() {
     return;
   }
 
+  state.headerMobileMenuOpen = false;
   state.isSigningOut = true;
   clearMonthStatusListener();
   state.authError = '';
