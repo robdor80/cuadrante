@@ -497,9 +497,28 @@ function renderHeaderActions() {
         <span class="header-user-dot" style="--header-user-color:${escapeHtml(getHeaderUserColor())}"></span>
         <span class="header-user-name">${escapeHtml(getHeaderUserName())}</span>
       </div>
+      <nav class="header-menu" aria-label="Menu principal">
+        <button
+          id="header-settings-btn"
+          class="header-menu-item"
+          type="button"
+          ${state.isSigningOut ? 'disabled' : ''}
+        >
+          Ajustes
+        </button>
+        <button
+          id="header-logout-menu-btn"
+          class="header-menu-item"
+          type="button"
+          aria-label="Cerrar sesión"
+          ${state.isSigningOut ? 'disabled' : ''}
+        >
+          ${state.isSigningOut ? 'Saliendo...' : 'Salir'}
+        </button>
+      </nav>
       <button
         id="header-logout-btn"
-        class="btn btn-header btn-logout-ghost"
+        class="btn btn-header btn-logout-ghost header-logout-mobile"
         type="button"
         aria-label="Cerrar sesión"
         ${
@@ -520,6 +539,18 @@ function renderHeaderActions() {
     const headerLogoutButton = document.getElementById('header-logout-btn');
     if (headerLogoutButton) {
       headerLogoutButton.addEventListener('click', handleLogout);
+    }
+
+    const headerLogoutMenuButton = document.getElementById('header-logout-menu-btn');
+    if (headerLogoutMenuButton) {
+      headerLogoutMenuButton.addEventListener('click', handleLogout);
+    }
+
+    const headerSettingsButton = document.getElementById('header-settings-btn');
+    if (headerSettingsButton) {
+      headerSettingsButton.addEventListener('click', () => {
+        showToast({ type: 'info', message: 'Ajustes proximamente.' });
+      });
     }
     return;
   }
