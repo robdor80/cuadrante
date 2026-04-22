@@ -1147,7 +1147,6 @@ h1 {
 
   .header-menu {
     right: 12px;
-    top: 40px;
   }
 
   h1 {
@@ -1292,13 +1291,23 @@ h1 {
 }
 
 @media (max-width: 767px) {
+  .header-menu {
+    top: 54px;
+  }
+
+  .header-menu-item--logout {
+    gap: 5px;
+  }
+
   .header-menu-item--logout .logout-label {
     order: 1;
   }
 
   .header-menu-item--logout .logout-icon {
     order: 2;
-    margin-left: auto;
+    margin-left: 0;
+    width: 14px;
+    height: 14px;
   }
 }
 
