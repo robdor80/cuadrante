@@ -28,7 +28,7 @@ import { getMonthGrid6x7, getShiftKindForDate } from './shiftCycle.js';
 
 const appRoot = document.getElementById('app');
 const headerActionsRoot = document.getElementById('header-actions');
-const WEEKDAY_LABELS = ['lunes', 'martes', 'miÃ©rcoles', 'jueves', 'viernes', 'sÃ¡bado', 'domingo'];
+const WEEKDAY_LABELS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
 const ROUTE_SET = new Set([ROUTES.HOME, ROUTES.LOGIN, ROUTES.CALENDAR]);
 const DEFAULT_PROFILE_COLOR = PROFILE_COLOR_OPTIONS[0]?.value || '#1d4ed8';
 const MONTH_KEY_REGEX = /^\d{4}-\d{2}$/;
@@ -160,7 +160,7 @@ function getToastDurationByType(type) {
 function renderGlobalFeedbackUI() {
   const root = ensureGlobalFeedbackRoot();
   const offlineBadgeHtml = !state.isOnline
-    ? '<div class="connection-badge connection-badge--offline" role="status">Sin conexiÃ³n</div>'
+    ? '<div class="connection-badge connection-badge--offline" role="status">Sin conexión</div>'
     : '';
   const toast = state.toastCurrent;
   const toastHtml = toast
@@ -307,7 +307,7 @@ function ensureSelectedDateKey() {
 function formatSelectedDateLabel(dateKey) {
   const parsed = parseDateKey(dateKey);
   if (!parsed) {
-    return 'DÃ­a sin seleccionar';
+    return 'Día sin seleccionar';
   }
 
   return parsed.toLocaleDateString('es-ES', {
@@ -479,18 +479,18 @@ function resetCalendarState() {
 
 function mapAuthErrorMessage(error) {
   if (!error || typeof error !== 'object') {
-    return 'No se pudo iniciar sesiÃ³n con Google.';
+    return 'No se pudo iniciar sesión con Google.';
   }
 
   switch (error.code) {
     case 'auth/popup-closed-by-user':
-      return 'Se cerrÃ³ la ventana de Google antes de completar el acceso.';
+      return 'Se cerró la ventana de Google antes de completar el acceso.';
     case 'auth/popup-blocked':
-      return 'El navegador bloqueÃ³ el popup. Permite popups para continuar.';
+      return 'El navegador bloqueó el popup. Permite popups para continuar.';
     case 'auth/cancelled-popup-request':
-      return 'Ya habÃ­a un intento de login en curso.';
+      return 'Ya había un intento de login en curso.';
     default:
-      return 'Error de autenticaciÃ³n con Google. IntÃ©ntalo de nuevo.';
+      return 'Error de autenticación con Google. Inténtalo de nuevo.';
   }
 }
 
@@ -552,7 +552,7 @@ function renderHeaderActions() {
         id="header-mobile-menu-toggle"
         class="header-mobile-menu-toggle"
         type="button"
-        aria-label="Abrir menÃº"
+        aria-label="Abrir menú"
         aria-expanded="${state.headerMobileMenuOpen ? 'true' : 'false'}"
         ${state.isSigningOut ? 'disabled' : ''}
       >
@@ -560,7 +560,7 @@ function renderHeaderActions() {
         <span class="header-mobile-menu-line"></span>
         <span class="header-mobile-menu-line"></span>
       </button>
-      <nav class="header-menu ${state.headerMobileMenuOpen ? 'is-open' : ''}" aria-label="MenÃº principal">
+      <nav class="header-menu ${state.headerMobileMenuOpen ? 'is-open' : ''}" aria-label="Menú principal">
         <button
           id="header-settings-btn"
           class="header-menu-item header-menu-item--settings"
@@ -573,7 +573,7 @@ function renderHeaderActions() {
           id="header-logout-menu-btn"
           class="header-menu-item header-menu-item--logout"
           type="button"
-          aria-label="Cerrar sesiÃ³n"
+          aria-label="Cerrar sesión"
           ${state.isSigningOut ? 'disabled' : ''}
         >
           <span class="logout-icon" aria-hidden="true">
@@ -654,7 +654,7 @@ function validateProfileInput(name, color) {
   }
 
   if (!allowedColors.has(color)) {
-    return { ok: false, message: 'Selecciona un color vÃ¡lido de la paleta.' };
+    return { ok: false, message: 'Selecciona un color válido de la paleta.' };
   }
 
   return {
@@ -682,7 +682,7 @@ function renderHomeInfo() {
       <p class="muted">Parte 5: estados diarios por usuario, realtime por mes visible y markers en calendario.</p>
       <ul>
         <li>6 slots fijos: ${SLOT_COUNT}</li>
-        <li>Ciclo 12 dÃ­as: ${SHIFT_PATTERN.join(' -> ')}</li>
+        <li>Ciclo 12 días: ${SHIFT_PATTERN.join(' -> ')}</li>
         <li>Estados diarios: ${Object.values(DailyStatus).join(' | ')}</li>
       </ul>
       <p class="muted">Para usar calendario necesitas login autorizado y perfil inicial.</p>
@@ -703,14 +703,14 @@ function renderLogin() {
   if (state.deniedEmail) {
     statusBlock = `
       <p class="auth-message auth-message--denied">
-        Acceso denegado: el email <strong>${escapeHtml(state.deniedEmail)}</strong> no estÃ¡ autorizado.
+        Acceso denegado: el email <strong>${escapeHtml(state.deniedEmail)}</strong> no está autorizado.
       </p>
     `;
   } else if (state.authError) {
     statusBlock = `<p class="auth-message auth-message--error">${escapeHtml(state.authError)}</p>`;
   } else if (!isFirebaseReady) {
     statusBlock =
-      '<p class="auth-message auth-message--warn">Firebase no estÃ¡ configurado todavÃ­a. Revisa js/config.js.</p>';
+      '<p class="auth-message auth-message--warn">Firebase no está configurado todavía. Revisa js/config.js.</p>';
   }
 
   appRoot.innerHTML = `
@@ -721,7 +721,7 @@ function renderLogin() {
       <button id="google-login-btn" class="btn btn-primary" type="button" ${buttonDisabled ? 'disabled' : ''}>
         ${state.isSigningIn ? 'Abriendo Google...' : 'Continuar con Google'}
       </button>
-      <p class="muted auth-help">Firebase configurado: <strong>${isFirebaseConfigured() ? 'sÃ­' : 'no'}</strong></p>
+      <p class="muted auth-help">Firebase configurado: <strong>${isFirebaseConfigured() ? 'sí' : 'no'}</strong></p>
     </section>
   `;
 
@@ -767,7 +767,7 @@ function buildLegendContent() {
   }
 
   if (!state.legendUsers.length) {
-    return '<p class="muted legend-status">AÃºn no hay integrantes activos.</p>';
+    return '<p class="muted legend-status">Aún no hay integrantes activos.</p>';
   }
 
   const items = state.legendUsers
@@ -846,12 +846,12 @@ function getDailyStatusInfoHtml() {
     )}</p>`;
   }
 
-  return '<p class="muted daily-status-info">El nÃºmero en cada dÃ­a indica cuÃ¡ntos trabajan ese dÃ­a.</p>';
+  return '<p class="muted daily-status-info">El número en cada día indica cuántos trabajan ese día.</p>';
 }
 
 function getMultiSelectionCountLabel() {
   const count = state.multiSelectedDateKeys.size;
-  return `${count} ${count === 1 ? 'dÃ­a' : 'dÃ­as'}`;
+  return `${count} ${count === 1 ? 'día' : 'días'}`;
 }
 
 function getVisibleMonthBounds() {
@@ -908,7 +908,7 @@ function validateRangeSelection(startDateKey, endDateKey) {
   }
 
   if (!DATE_KEY_REGEX.test(startDateKey) || !DATE_KEY_REGEX.test(endDateKey)) {
-    return { ok: false, message: 'Fecha invÃ¡lida.' };
+    return { ok: false, message: 'Fecha inválida.' };
   }
 
   if (startDateKey > endDateKey) {
@@ -950,14 +950,14 @@ function handleApplyRangeSelection() {
 
   const selectableDateKeys = getSelectableDateKeysFromRange(state.rangeStartDateKey, state.rangeEndDateKey);
   if (!selectableDateKeys.length) {
-    state.rangeFeedback = 'Sin dÃ­as vÃ¡lidos en rango.';
+    state.rangeFeedback = 'Sin días válidos en rango.';
     state.rangeFeedbackType = 'error';
     refreshCurrentRoute();
     return;
   }
 
   state.multiSelectedDateKeys = new Set(selectableDateKeys);
-  state.rangeFeedback = `${selectableDateKeys.length} dÃ­as seleccionados.`;
+  state.rangeFeedback = `${selectableDateKeys.length} días seleccionados.`;
   state.rangeFeedbackType = 'success';
   state.bulkActionFeedback = '';
   state.bulkActionFeedbackType = '';
@@ -1037,7 +1037,7 @@ function buildMultiSelectBarHtml() {
     : '';
 
   return `
-    <div class="multi-select-bar" aria-label="Acciones de multiselecciÃ³n">
+    <div class="multi-select-bar" aria-label="Acciones de multiselección">
       <div class="multi-select-bar__inner">
         <div class="multi-select-bar__card">
           <p class="multi-select-bar__count muted">${escapeHtml(getMultiSelectionCountLabel())}</p>
@@ -1079,8 +1079,8 @@ function buildMultiSelectRangeHtml() {
     : '';
 
   return `
-    <section class="multi-range-tool" aria-label="SelecciÃ³n por rango en multiselecciÃ³n">
-      <p class="multi-range-tool__title">Rango rÃ¡pido (multiselecciÃ³n)</p>
+    <section class="multi-range-tool" aria-label="Selección por rango en multiselección">
+      <p class="multi-range-tool__title">Rango rápido (multiselección)</p>
       <div class="multi-range-tool__inputs">
         <label class="multi-range-tool__field">
           <span>Inicio</span>
@@ -1170,7 +1170,7 @@ function bindMultiSelectRangeEvents() {
 function getShiftLabel(shiftKind) {
   switch (shiftKind) {
     case 'ma\u00f1ana':
-      return 'MaÃ±ana';
+      return 'Mañana';
     case 'tarde':
       return 'Tarde';
     case 'noche':
@@ -1268,7 +1268,7 @@ function buildDayModalHtml() {
 
         <section class="day-modal-columns">
           <article class="day-modal-column">
-            <h4>ComisarÃ­a principal</h4>
+            <h4>Comisaría principal</h4>
             ${buildModalUserList(buckets.principal, 'Sin usuarios en principal.')}
           </article>
           <article class="day-modal-column">
@@ -1282,7 +1282,7 @@ function buildDayModalHtml() {
         </section>
 
         <section class="day-modal-edit">
-          <p class="day-modal-edit-title">Tu estado para este dÃ­a</p>
+          <p class="day-modal-edit-title">Tu estado para este día</p>
           <div class="day-modal-edit-actions">
             <button
               type="button"
@@ -1311,7 +1311,7 @@ function buildDayModalHtml() {
           </div>
           ${
             !vialiaAllowed
-              ? '<p class="muted day-modal-hint">Vialia solo estÃ¡ disponible en tardes laborables.</p>'
+              ? '<p class="muted day-modal-hint">Vialia solo está disponible en tardes laborables.</p>'
               : ''
           }
           ${state.dayModalError ? `<p class="auth-message auth-message--error">${escapeHtml(state.dayModalError)}</p>` : ''}
@@ -1464,7 +1464,7 @@ function renderCalendarGrid() {
       const workingCount = getWorkingCountForDate(dateKey);
       const availabilityClass = getAvailabilityClass(workingCount);
       const availabilityHtml = isWorkShift
-        ? `<div class="calendar-availability-slot ${availabilityClass}" aria-label="CompaÃ±eros que trabajan">${workingCount}</div>`
+        ? `<div class="calendar-availability-slot ${availabilityClass}" aria-label="Compañeros que trabajan">${workingCount}</div>`
         : '';
       const interactiveAttrs = isEditable
         ? 'role="button" tabindex="0"'
@@ -1532,7 +1532,7 @@ function renderCalendarGrid() {
             aria-pressed="${state.isMultiSelectMode ? 'true' : 'false'}"
             ${state.isBulkApplying ? 'disabled' : ''}
           >
-            ${state.isMultiSelectMode ? 'Salir multiselecciÃ³n' : 'MultiselecciÃ³n'}
+            ${state.isMultiSelectMode ? 'Salir multiselección' : 'Multiselección'}
           </button>
           ${multiModeInfo}
         </div>
@@ -1555,8 +1555,8 @@ function renderCalendarGrid() {
       ${settingsModalHtml}
       ${multiSelectBarHtml}
     </section>
-    <footer class="app-authorship" aria-label="AutorÃ­a de la web">
-      Web creada por Roberto Dorado RodrÃ­guez Â· 2026
+    <footer class="app-authorship" aria-label="Autoría de la web">
+      Web creada por Roberto Dorado Rodríguez · 2026
     </footer>
   `;
 
@@ -1811,7 +1811,7 @@ function syncMonthRealtimeSubscription({ preserveData = false } = {}) {
 
 function renderCalendar() {
   if (state.authStatus === 'loading') {
-    renderLoadingPanel('Verificando sesiÃ³n...');
+    renderLoadingPanel('Verificando sesión...');
     return;
   }
 
@@ -1860,7 +1860,7 @@ function renderRoute(route) {
   switch (route) {
     case ROUTES.HOME:
       if (state.authStatus === 'loading') {
-        renderLoadingPanel('Verificando sesiÃ³n...');
+        renderLoadingPanel('Verificando sesión...');
       } else if (state.authStatus === 'authenticated') {
         goTo(ROUTES.CALENDAR);
       } else {
@@ -1936,7 +1936,7 @@ async function handleGoogleLogin() {
   }
 
   if (!isAuthReadyForUse()) {
-    state.authError = 'Firebase no estÃ¡ configurado. Completa js/config.js antes de iniciar sesiÃ³n.';
+    state.authError = 'Firebase no está configurado. Completa js/config.js antes de iniciar sesión.';
     refreshCurrentRoute();
     return;
   }
@@ -1973,10 +1973,10 @@ async function handleLogout() {
 
   try {
     await signOutUser();
-    showToast({ type: 'info', message: 'SesiÃ³n cerrada.' });
+    showToast({ type: 'info', message: 'Sesión cerrada.' });
   } catch (_error) {
-    state.authError = 'No se pudo cerrar sesiÃ³n. IntÃ©ntalo de nuevo.';
-    showToast({ type: 'error', message: 'No se pudo cerrar sesiÃ³n.' });
+    state.authError = 'No se pudo cerrar sesión. Inténtalo de nuevo.';
+    showToast({ type: 'error', message: 'No se pudo cerrar sesión.' });
   } finally {
     state.isSigningOut = false;
     refreshCurrentRoute();
@@ -2009,7 +2009,7 @@ async function handleStatusUpdate(status, targetDateKey = state.dayModalDateKey 
   }
 
   if (status === DailyStatus.VIALIA && !isVialiaAllowedForDate(targetDateKey)) {
-    state.dayModalError = 'Vialia solo estÃ¡ disponible en tardes laborables.';
+    state.dayModalError = 'Vialia solo está disponible en tardes laborables.';
     refreshCurrentRoute();
     return;
   }
@@ -2038,7 +2038,7 @@ async function handleStatusUpdate(status, targetDateKey = state.dayModalDateKey 
       return;
     }
 
-    state.dayModalError = 'No se pudo guardar el estado diario. IntÃ©ntalo de nuevo.';
+    state.dayModalError = 'No se pudo guardar el estado diario. Inténtalo de nuevo.';
     showToast({ type: 'error', message: 'No se pudo guardar el estado.' });
   } finally {
     state.isDailyStatusSaving = false;
@@ -2097,7 +2097,7 @@ async function handleProfileSubmit(event) {
       state.profileError = 'El turno ya tiene 6 integrantes. No quedan plazas libres.';
     } else {
       state.profileStatus = 'needs_profile';
-      state.profileError = 'No se pudo completar el alta. IntÃ©ntalo de nuevo.';
+      state.profileError = 'No se pudo completar el alta. Inténtalo de nuevo.';
     }
   } finally {
     state.isProfileSaving = false;
@@ -2163,7 +2163,7 @@ async function resolveProfileForAuthenticatedUser(firebaseUser) {
     }
 
     state.profileStatus = 'error';
-    state.profileError = 'No se pudo cargar la informaciÃ³n de perfil/plazas. Revisa Firestore y permisos.';
+    state.profileError = 'No se pudo cargar la información de perfil/plazas. Revisa Firestore y permisos.';
   }
 
   refreshCurrentRoute();
@@ -2217,7 +2217,7 @@ async function bootstrap() {
 
     state.isOnline = false;
     renderGlobalFeedbackUI();
-    showToast({ type: 'warning', message: 'Sin conexiÃ³n.' });
+    showToast({ type: 'warning', message: 'Sin conexión.' });
   });
 
   window.addEventListener('online', () => {
@@ -2227,7 +2227,7 @@ async function bootstrap() {
 
     state.isOnline = true;
     renderGlobalFeedbackUI();
-    showToast({ type: 'success', message: 'ConexiÃ³n recuperada.' });
+    showToast({ type: 'success', message: 'Conexión recuperada.' });
   });
 
   const router = createHashRouter({
