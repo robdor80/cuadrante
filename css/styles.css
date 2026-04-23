@@ -584,44 +584,11 @@ h1 {
 }
 
 .calendar-header-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
+  display: block;
 }
 
 .calendar-header-main {
-  min-width: 220px;
-  flex: 1 1 320px;
-}
-
-.calendar-header-tools {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-  margin-left: auto;
-}
-
-.btn.btn-multi-select {
-  padding: 8px 12px;
-  font-size: 0.8rem;
-  white-space: nowrap;
-  border-radius: 13px;
-}
-
-.btn.btn-multi-select.is-active {
-  background: #e4f0ff;
-  border-color: #9dc5f3;
-  color: #1e3a8a;
-  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.2);
-}
-
-.calendar-multi-meta {
-  margin: 0;
-  font-size: 0.74rem;
-  text-align: right;
+  min-width: 0;
 }
 
 .multi-range-tool {
@@ -780,6 +747,12 @@ h1 {
 .daily-status-info {
   margin: 10px 0 0;
   font-size: 0.84rem;
+}
+
+.calendar-selection-indicator {
+  margin: 8px 0 0;
+  font-size: 0.74rem;
+  line-height: 1.2;
 }
 
 .calendar-legend {
@@ -1598,15 +1571,6 @@ h1 {
     font-size: 0.76rem;
   }
 
-  .btn.btn-multi-select {
-    font-size: 0.72rem;
-    padding: 6px 8px;
-  }
-
-  .calendar-multi-meta {
-    font-size: 0.68rem;
-  }
-
   .multi-select-bar {
     padding: 0 10px calc(8px + constant(safe-area-inset-bottom));
     padding: 0 10px calc(8px + env(safe-area-inset-bottom));
@@ -1747,13 +1711,8 @@ h1 {
 }
 
 @media (max-width: 599px) {
-  .calendar-header-tools {
-    width: 100%;
-    align-items: flex-start;
-  }
-
-  .calendar-multi-meta {
-    text-align: left;
+  .calendar-selection-indicator {
+    font-size: 0.72rem;
   }
 }
 
@@ -1813,10 +1772,6 @@ h1 {
 
   .header-menu-item {
     font-size: 0.84rem;
-  }
-
-  .btn.btn-multi-select {
-    font-size: 0.8rem;
   }
 
   .multi-select-bar {

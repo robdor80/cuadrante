@@ -668,7 +668,7 @@ function renderHeaderActions() {
           type="button"
           ${state.isSigningOut ? 'disabled' : ''}
         >
-          Ajustes
+          Opciones
         </button>
         <button
           id="header-logout-menu-btn"
@@ -1530,6 +1530,7 @@ function buildSettingsModalHtml() {
   }
 
   const isEditUsers = state.settingsModalView === 'edit_users';
+  const multiSelectLabel = state.isMultiSelectMode ? 'Salir de selecci\u00f3n m\u00faltiple' : 'Seleccionar varios d\u00edas';
   const bodyHtml = isEditUsers
     ? `
       ${buildSettingsEditUsersContent()}
@@ -1538,6 +1539,9 @@ function buildSettingsModalHtml() {
       <div class="settings-menu-list">
         <button id="settings-edit-users-btn" type="button" class="btn btn-secondary settings-menu-item">
           Editar usuarios
+        </button>
+        <button id="settings-toggle-multi-select-btn" type="button" class="btn btn-secondary settings-menu-item">
+          ${multiSelectLabel}
         </button>
       </div>
     `;
@@ -1552,7 +1556,7 @@ function buildSettingsModalHtml() {
     >
       <div class="settings-modal-card">
         <header class="settings-modal-header">
-          <h3 id="settings-modal-title">Ajustes</h3>
+          <h3 id="settings-modal-title">Opciones</h3>
           <button
             id="settings-modal-close-btn"
             type="button"
@@ -1595,6 +1599,15 @@ function bindSettingsModalEvents() {
   if (settingsEditUsersButton) {
     settingsEditUsersButton.addEventListener('click', () => {
       goToSettingsView('edit_users');
+    });
+  }
+
+  const settingsToggleMultiSelectButton = document.getElementById('settings-toggle-multi-select-btn');
+  if (settingsToggleMultiSelectButton) {
+    settingsToggleMultiSelectButton.addEventListener('click', () => {
+      closeSettingsModal({ skipRefresh: true });
+      setMultiSelectMode(!state.isMultiSelectMode);
+      refreshCurrentRoute();
     });
   }
 
@@ -1867,9 +1880,8 @@ function renderCalendarGrid() {
   const multiSelectSpacerHtml = state.isMultiSelectMode
     ? '<div class="calendar-multi-spacer" aria-hidden="true"></div>'
     : '';
-  const selectedCount = state.multiSelectedDateKeys.size;
   const multiModeInfo = state.isMultiSelectMode
-    ? `<p class="calendar-multi-meta muted">${selectedCount} seleccionados</p>`
+    ? '<p class="calendar-selection-indicator muted">Modo selecci\u00f3n activo</p>'
     : '';
 
   appRoot.innerHTML = `
@@ -1886,17 +1898,6 @@ function renderCalendarGrid() {
             }>&rsaquo;</button>
           </div>
           ${getDailyStatusInfoHtml()}
-        </div>
-        <div class="calendar-header-tools">
-          <button
-            id="toggle-multi-select-btn"
-            type="button"
-            class="btn btn-secondary btn-multi-select ${state.isMultiSelectMode ? 'is-active' : ''}"
-            aria-pressed="${state.isMultiSelectMode ? 'true' : 'false'}"
-            ${state.isBulkApplying ? 'disabled' : ''}
-          >
-            ${state.isMultiSelectMode ? 'Salir multiselecciÃ³n' : 'MultiselecciÃ³n'}
-          </button>
           ${multiModeInfo}
         </div>
       </div>
@@ -1932,14 +1933,6 @@ function renderCalendarGrid() {
   const nextButton = document.getElementById('month-next-btn');
   if (nextButton) {
     nextButton.addEventListener('click', () => handleMonthNavigation(1));
-  }
-
-  const toggleMultiSelectButton = document.getElementById('toggle-multi-select-btn');
-  if (toggleMultiSelectButton) {
-    toggleMultiSelectButton.addEventListener('click', () => {
-      setMultiSelectMode(!state.isMultiSelectMode);
-      refreshCurrentRoute();
-    });
   }
 
   const dayCards = document.querySelectorAll('.calendar-day[data-date-key]');
