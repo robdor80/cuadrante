@@ -42,6 +42,31 @@ function isValidMonthKey(value) {
   return typeof value === 'string' && /^\d{4}-\d{2}$/.test(value);
 }
 
+function normalizeHexColor(value) {
+  let raw = String(value || '').trim();
+  if (!raw) {
+    return '';
+  }
+
+  if (raw.startsWith('#')) {
+    raw = raw.slice(1);
+  }
+
+  raw = raw.replace(/[^0-9a-fA-F]/g, '');
+  if (raw.length === 3) {
+    raw = raw
+      .split('')
+      .map((char) => `${char}${char}`)
+      .join('');
+  }
+
+  if (!/^[0-9a-fA-F]{6}$/.test(raw)) {
+    return '';
+  }
+
+  return `#${raw.toUpperCase()}`;
+}
+
 function normalizeProfileRecord(raw) {
   if (!raw) {
     return null;
@@ -565,7 +590,7 @@ export async function updateUserProfileSettings({ uid, name, color, isActive }) 
     throw new Error('Nombre inválido.');
   }
 
-  const safeColor = String(color || '').trim();
+  const safeColor = normalizeHexColor(color);
   if (!safeColor) {
     throw new Error('Color inválido.');
   }

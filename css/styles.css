@@ -885,28 +885,86 @@ h1 {
   border-color: #0d5e89;
 }
 
-.settings-color-grid {
+.settings-color-hybrid {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-color-inline {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+}
+
+.settings-color-picker {
+  width: 44px;
+  height: 40px;
+  border: 1px solid #c8d7e6;
+  border-radius: 10px;
+  padding: 2px;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.settings-color-hex-input {
+  width: 100%;
+  border: 1px solid #c8d7e6;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 0.84rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  text-transform: uppercase;
+  color: #17324d;
+}
+
+.settings-color-hex-input:focus {
+  outline: 2px solid rgba(13, 94, 137, 0.2);
+  border-color: #0d5e89;
+}
+
+.settings-color-preview {
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  background: var(--settings-preview-color, #1d4ed8);
+}
+
+.settings-color-swatch-row {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 8px;
 }
 
-.settings-color-option {
+.settings-color-swatch-btn {
+  appearance: none;
+  min-height: 36px;
+  border: 1px solid #dbe4ec;
+  border-radius: 10px;
+  background: #ffffff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #dbe4ec;
-  border-radius: 10px;
-  min-height: 38px;
-  padding: 5px;
-  background: #ffffff;
   cursor: pointer;
 }
 
-.settings-color-option input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
+.settings-color-swatch-btn:hover:not(:disabled) {
+  border-color: #c8d7e6;
+  background: #f8fbff;
+}
+
+.settings-color-swatch-btn:focus-visible {
+  outline: 2px solid rgba(13, 94, 137, 0.25);
+  outline-offset: 1px;
+}
+
+.settings-color-swatch-btn.is-selected {
+  border-color: #0d5e89;
+  box-shadow: 0 0 0 2px rgba(13, 94, 137, 0.16);
+}
+
+.settings-color-swatch-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .settings-color-dot {
@@ -917,8 +975,10 @@ h1 {
   background: var(--settings-user-color, #1d4ed8);
 }
 
-.settings-color-option input:checked + .settings-color-dot {
-  box-shadow: 0 0 0 3px rgba(13, 94, 137, 0.18);
+.settings-color-error {
+  margin: 0;
+  font-size: 0.74rem;
+  color: #b91c1c;
 }
 
 .settings-active-row {
@@ -1537,7 +1597,7 @@ h1 {
     padding: 9px 10px;
   }
 
-  .settings-color-grid {
+  .settings-color-swatch-row {
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }

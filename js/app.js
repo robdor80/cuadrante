@@ -104,6 +104,7 @@ const state = {
   settingsEditorDraft: {
     name: '',
     color: DEFAULT_PROFILE_COLOR,
+    colorInput: DEFAULT_PROFILE_COLOR,
     isActive: true,
   },
   settingsEditorError: '',
@@ -449,9 +450,11 @@ function openSettingsUserEditor(uid) {
   }
 
   state.settingsEditingUid = user.uid;
+  const initialColor = normalizeHexColorInput(user.color || DEFAULT_PROFILE_COLOR) || DEFAULT_PROFILE_COLOR;
   state.settingsEditorDraft = {
     name: user.name || '',
-    color: user.color || DEFAULT_PROFILE_COLOR,
+    color: initialColor,
+    colorInput: initialColor,
     isActive: user.isActive !== false,
   };
   state.settingsEditorError = '';
@@ -470,9 +473,14 @@ function handleSettingsEditorNameChange(value) {
 }
 
 function handleSettingsEditorColorChange(value) {
+  const rawInput = String(value || '').trim();
+  const normalizedColor = normalizeHexColorInput(rawInput);
+  const nextColorInput = normalizedColor || rawInput.toUpperCase();
+
   state.settingsEditorDraft = {
     ...state.settingsEditorDraft,
-    color: String(value || DEFAULT_PROFILE_COLOR),
+    colorInput: nextColorInput,
+    color: normalizedColor || state.settingsEditorDraft.color || DEFAULT_PROFILE_COLOR,
   };
   state.settingsEditorError = '';
 }
@@ -725,6 +733,7 @@ function resetProfileState() {
   state.settingsEditorDraft = {
     name: '',
     color: DEFAULT_PROFILE_COLOR,
+    colorInput: DEFAULT_PROFILE_COLOR,
     isActive: true,
   };
   state.settingsEditorError = '';
@@ -763,6 +772,56 @@ function validateProfileInput(name, color) {
     value: {
       name: safeName,
       color,
+    },
+  };
+}
+
+function normalizeHexColorInput(rawValue) {
+  let value = String(rawValue || '').trim();
+  if (!value) {
+    return '';
+  }
+
+  if (value.startsWith('#')) {
+    value = value.slice(1);
+  }
+
+  value = value.replace(/[^0-9a-fA-F]/g, '');
+  if (value.length === 3) {
+    value = value
+      .split('')
+      .map((char) => `${char}${char}`)
+      .join('');
+  }
+
+  if (value.length !== 6) {
+    return '';
+  }
+
+  return `#${value.toUpperCase()}`;
+}
+
+function validateSettingsUserInput(name, colorInput) {
+  const safeName = String(name || '').trim();
+  const safeColor = normalizeHexColorInput(colorInput);
+
+  if (safeName.length < 2) {
+    return { ok: false, message: 'El nombre debe tener al menos 2 caracteres.' };
+  }
+
+  if (safeName.length > 24) {
+    return { ok: false, message: 'El nombre no puede superar 24 caracteres.' };
+  }
+
+  if (!safeColor) {
+    return { ok: false, message: 'Color invalido. Usa formato HEX (#RRGGBB).' };
+  }
+
+  return {
+    ok: true,
+    value: {
+      name: safeName,
+      color: safeColor,
     },
   };
 }
@@ -1546,19 +1605,22 @@ function buildSettingsUserEditorModalHtml() {
     return '';
   }
 
-  const colorOptions = PROFILE_COLOR_OPTIONS.map((option) => {
-    const checked = option.value === state.settingsEditorDraft.color ? 'checked' : '';
+  const normalizedFromInput = normalizeHexColorInput(state.settingsEditorDraft.colorInput);
+  const effectiveColor = normalizedFromInput || state.settingsEditorDraft.color || DEFAULT_PROFILE_COLOR;
+  const hasInvalidColorInput = Boolean(state.settingsEditorDraft.colorInput) && !normalizedFromInput;
+
+  const quickSwatches = PROFILE_COLOR_OPTIONS.map((option) => {
+    const swatchColor = normalizeHexColorInput(option.value) || option.value;
     return `
-      <label class="settings-color-option">
-        <input
-          type="radio"
-          name="settings-user-color"
-          value="${escapeHtml(option.value)}"
-          ${checked}
-          ${state.settingsEditorSaving ? 'disabled' : ''}
-        />
-        <span class="settings-color-dot" style="--settings-user-color:${escapeHtml(option.value)}"></span>
-      </label>
+      <button
+        type="button"
+        class="settings-color-swatch-btn ${effectiveColor === swatchColor ? 'is-selected' : ''}"
+        data-settings-color-swatch="${escapeHtml(swatchColor)}"
+        aria-label="Usar color ${escapeHtml(option.label || option.value)}"
+        ${state.settingsEditorSaving ? 'disabled' : ''}
+      >
+        <span class="settings-color-dot" style="--settings-user-color:${escapeHtml(swatchColor)}"></span>
+      </button>
     `;
   }).join('');
 
@@ -1599,9 +1661,37 @@ function buildSettingsUserEditorModalHtml() {
           />
 
           <p class="form-label">Color</p>
-          <div class="settings-color-grid">
-            ${colorOptions}
+          <div class="settings-color-hybrid">
+            <div class="settings-color-inline">
+              <input
+                id="settings-user-color-picker"
+                class="settings-color-picker"
+                type="color"
+                value="${escapeHtml(effectiveColor)}"
+                ${state.settingsEditorSaving ? 'disabled' : ''}
+              />
+              <input
+                id="settings-user-color-hex-input"
+                class="settings-color-hex-input"
+                type="text"
+                value="${escapeHtml(state.settingsEditorDraft.colorInput || effectiveColor)}"
+                placeholder="#1D4ED8"
+                maxlength="7"
+                spellcheck="false"
+                autocapitalize="characters"
+                ${state.settingsEditorSaving ? 'disabled' : ''}
+              />
+            </div>
+            <div class="settings-color-preview" style="--settings-preview-color:${escapeHtml(effectiveColor)}"></div>
+            <div class="settings-color-swatch-row">
+              ${quickSwatches}
+            </div>
           </div>
+          ${
+            hasInvalidColorInput
+              ? '<p class="settings-color-error">Color invalido. Usa #RRGGBB.</p>'
+              : ''
+          }
 
           <div class="settings-active-row">
             <p class="form-label">Estado</p>
@@ -1627,7 +1717,7 @@ function buildSettingsUserEditorModalHtml() {
             id="settings-user-save-btn"
             type="submit"
             class="btn btn-primary settings-save-btn"
-            ${state.settingsEditorSaving ? 'disabled' : ''}
+            ${state.settingsEditorSaving || !normalizedFromInput ? 'disabled' : ''}
           >
             ${state.settingsEditorSaving ? 'Guardando...' : 'Guardar cambios'}
           </button>
@@ -1665,10 +1755,27 @@ function bindSettingsUserEditorEvents() {
     });
   }
 
-  const colorInputs = document.querySelectorAll('input[name="settings-user-color"]');
-  colorInputs.forEach((input) => {
-    input.addEventListener('change', (event) => {
+  const colorPickerInput = document.getElementById('settings-user-color-picker');
+  if (colorPickerInput) {
+    colorPickerInput.addEventListener('input', (event) => {
       handleSettingsEditorColorChange(event.target?.value || DEFAULT_PROFILE_COLOR);
+      refreshCurrentRoute();
+    });
+  }
+
+  const colorHexInput = document.getElementById('settings-user-color-hex-input');
+  if (colorHexInput) {
+    colorHexInput.addEventListener('input', (event) => {
+      handleSettingsEditorColorChange(event.target?.value || '');
+      refreshCurrentRoute();
+    });
+  }
+
+  const swatchButtons = document.querySelectorAll('[data-settings-color-swatch]');
+  swatchButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      handleSettingsEditorColorChange(String(button.dataset.settingsColorSwatch || DEFAULT_PROFILE_COLOR));
+      refreshCurrentRoute();
     });
   });
 
@@ -2241,7 +2348,7 @@ async function handleSaveSettingsUserProfile(event) {
     return;
   }
 
-  const validation = validateProfileInput(state.settingsEditorDraft.name, state.settingsEditorDraft.color);
+  const validation = validateSettingsUserInput(state.settingsEditorDraft.name, state.settingsEditorDraft.colorInput);
   if (!validation.ok) {
     state.settingsEditorError = validation.message;
     refreshCurrentRoute();
