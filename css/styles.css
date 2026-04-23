@@ -1145,6 +1145,10 @@ h1 {
   min-height: 20px;
 }
 
+.legend-item--inactive {
+  opacity: 0.52;
+}
+
 .legend-dot {
   width: 10px;
   height: 10px;
@@ -1152,6 +1156,11 @@ h1 {
   border: 1px solid rgba(0, 0, 0, 0.2);
   background: var(--legend-color, #1d4ed8);
   flex: 0 0 auto;
+}
+
+.legend-item--inactive .legend-dot {
+  background: #94a3b8;
+  border-color: rgba(71, 85, 105, 0.35);
 }
 
 .legend-name {
@@ -1162,6 +1171,10 @@ h1 {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.legend-item--inactive .legend-name {
+  color: #64748b;
 }
 
 .calendar-weekdays,
