@@ -273,6 +273,7 @@ h1 {
   cursor: not-allowed;
 }
 
+.header-menu-item--history,
 .header-menu-item--settings,
 .header-menu-item--logout {
   display: inline-flex;
@@ -435,6 +436,183 @@ h1 {
 
 .panel h2 {
   margin-top: 0;
+}
+
+.history-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.history-header {
+  display: grid;
+  gap: 8px;
+}
+
+.history-header h2 {
+  margin: 0;
+}
+
+.history-header-hint {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.history-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.history-filter-chip {
+  appearance: none;
+  border: 1px solid #c7d8e8;
+  border-radius: 999px;
+  background: #eef5fc;
+  color: #20415c;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 7px 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.history-filter-chip:hover:not(:disabled) {
+  background: #e5eff9;
+  border-color: #b8cde2;
+}
+
+.history-filter-chip:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.history-filter-chip.is-active {
+  background: #dcecf9;
+  border-color: #94b8d7;
+  color: #143653;
+}
+
+.history-filter-chip:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.history-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.history-card {
+  border: 1px solid rgba(174, 193, 211, 0.52);
+  border-radius: 14px;
+  background: rgba(249, 252, 255, 0.95);
+  padding: 12px;
+}
+
+.history-card h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.history-card-hint {
+  margin: 5px 0 0;
+  font-size: 0.76rem;
+}
+
+.history-loading,
+.history-empty {
+  margin: 0;
+  font-size: 0.84rem;
+}
+
+.history-user-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.history-user-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid rgba(189, 205, 221, 0.52);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.88);
+  padding: 8px 10px;
+}
+
+.history-user-row.is-inactive {
+  opacity: 0.64;
+}
+
+.history-user-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.history-user-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  background: var(--history-user-color, #1d4ed8);
+  flex: 0 0 auto;
+}
+
+.history-user-name {
+  font-size: 0.9rem;
+  font-weight: 650;
+  color: #1e3a54;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-user-count {
+  font-size: 1.02rem;
+  font-weight: 760;
+  color: #0f2f4a;
+}
+
+.history-metrics-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.history-metric-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid rgba(189, 205, 221, 0.52);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.88);
+  padding: 9px 11px;
+}
+
+.history-metric-row--soft {
+  opacity: 0.78;
+}
+
+.history-metric-label {
+  font-size: 0.9rem;
+  font-weight: 640;
+  color: #27445f;
+}
+
+.history-metric-value {
+  font-size: 1.06rem;
+  font-weight: 780;
+  color: #0f2f4a;
 }
 
 .app-authorship {
@@ -1649,6 +1827,21 @@ h1 {
     font-size: 0.68rem;
   }
 
+  .history-filter-chip {
+    font-size: 0.72rem;
+    padding: 6px 10px;
+  }
+
+  .history-user-name,
+  .history-metric-label {
+    font-size: 0.84rem;
+  }
+
+  .history-user-count,
+  .history-metric-value {
+    font-size: 0.98rem;
+  }
+
   .calendar-weekday {
     font-size: 0.54rem;
     letter-spacing: 0.02em;
@@ -1808,6 +2001,14 @@ h1 {
     font-size: 0.84rem;
   }
 
+  .history-grid {
+    gap: 12px;
+  }
+
+  .history-card {
+    padding: 13px;
+  }
+
   .multi-select-bar {
     padding: 0 14px calc(12px + constant(safe-area-inset-bottom));
     padding: 0 14px calc(12px + env(safe-area-inset-bottom));
@@ -1963,8 +2164,14 @@ h1 {
     gap: 4px;
   }
 
+  .header-menu-item--history,
   .header-menu-item--settings {
     justify-content: center;
+  }
+
+  .history-grid {
+    grid-template-columns: 1.35fr 1fr;
+    align-items: start;
   }
 
   .legend-list {

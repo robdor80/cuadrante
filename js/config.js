@@ -5,6 +5,7 @@ export const ROUTES = Object.freeze({
   HOME: '/',
   LOGIN: '/login',
   CALENDAR: '/calendario',
+  HISTORY: '/historial',
 });
 
 export const SLOT_COUNT = 6;

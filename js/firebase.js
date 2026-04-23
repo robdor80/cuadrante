@@ -426,6 +426,35 @@ export function subscribeMonthDailyStatuses(monthKey, onData, onError) {
   );
 }
 
+export async function loadMonthDailyStatuses(monthKey) {
+  if (!isValidMonthKey(monthKey)) {
+    throw new Error('monthKey inválido. Usa YYYY-MM.');
+  }
+
+  const db = initFirestore();
+  if (!db) {
+    throw new Error('Firestore no configurado.');
+  }
+
+  const monthRef = doc(db, DAILY_STATUS_MONTHS_COLLECTION, monthKey);
+  const snapshot = await getDoc(monthRef);
+
+  if (!snapshot.exists()) {
+    return {
+      monthKey,
+      days: {},
+      updatedAt: null,
+    };
+  }
+
+  const raw = snapshot.data() || {};
+  return {
+    monthKey: isValidMonthKey(raw.monthKey) ? raw.monthKey : monthKey,
+    days: normalizeMonthDays(raw.days),
+    updatedAt: raw.updatedAt || null,
+  };
+}
+
 export async function saveUserDailyStatus({ monthKey, dateKey, uid, status }) {
   if (!isValidMonthKey(monthKey)) {
     throw new Error('monthKey inválido. Usa YYYY-MM.');

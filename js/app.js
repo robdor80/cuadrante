@@ -16,6 +16,7 @@ import {
   isAuthReadyForUse,
   isFirebaseConfigured,
   listProfilesBySlot,
+  loadMonthDailyStatuses,
   loadUserProfile,
   observeAuthState,
   saveUserDailyStatus,
@@ -30,10 +31,15 @@ import { getMonthGrid6x7, getShiftKindForDate } from './shiftCycle.js';
 const appRoot = document.getElementById('app');
 const headerActionsRoot = document.getElementById('header-actions');
 const WEEKDAY_LABELS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
-const ROUTE_SET = new Set([ROUTES.HOME, ROUTES.LOGIN, ROUTES.CALENDAR]);
+const ROUTE_SET = new Set([ROUTES.HOME, ROUTES.LOGIN, ROUTES.CALENDAR, ROUTES.HISTORY]);
 const DEFAULT_PROFILE_COLOR = PROFILE_COLOR_OPTIONS[0]?.value || '#1d4ed8';
 const MONTH_KEY_REGEX = /^\d{4}-\d{2}$/;
 const DATE_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+const HISTORY_PERIOD_OPTIONS = Object.freeze([
+  { key: '1m', label: 'Último mes', months: 1 },
+  { key: '3m', label: 'Últimos 3 meses', months: 3 },
+  { key: '12m', label: 'Último año', months: 12 },
+]);
 
 const dateKeyFormatter = new Intl.DateTimeFormat('en-CA', {
   timeZone: SHIFT_TIMEZONE,
@@ -115,6 +121,17 @@ const state = {
   toastTimerId: null,
   toastLastKey: '',
   toastLastAt: 0,
+
+  historyPeriod: '3m',
+  historyStatus: 'idle',
+  historyError: '',
+  historyMetrics: {
+    myNoVoy: 0,
+    myVialia: 0,
+    teamVialiaByUid: {},
+  },
+  historyMonthCache: {},
+  historyLoadToken: 0,
 };
 
 function normalizeRouteFromHash(hashValue) {
@@ -289,6 +306,39 @@ function capitalizeFirst(text) {
 
 function addMonths(baseDate, delta) {
   return new Date(baseDate.getFullYear(), baseDate.getMonth() + delta, 1);
+}
+
+function getHistoryPeriodOption(periodKey) {
+  return HISTORY_PERIOD_OPTIONS.find((option) => option.key === periodKey) || HISTORY_PERIOD_OPTIONS[1];
+}
+
+function getHistoryMonthKeys(periodKey, todayKey = getTodayKey()) {
+  const option = getHistoryPeriodOption(periodKey);
+  const todayDate = parseDateKey(todayKey) || new Date();
+  const baseMonthDate = getMonthStartDate(todayDate);
+  const monthKeys = [];
+
+  for (let index = 0; index < option.months; index += 1) {
+    monthKeys.push(getMonthKeyFromDate(addMonths(baseMonthDate, -index)));
+  }
+
+  return monthKeys;
+}
+
+function invalidateHistoryMonthCache(monthKey) {
+  const safeMonthKey = String(monthKey || '').trim();
+  if (!safeMonthKey) {
+    state.historyMonthCache = {};
+    state.historyStatus = 'idle';
+    state.historyError = '';
+    return;
+  }
+
+  if (state.historyMonthCache[safeMonthKey]) {
+    delete state.historyMonthCache[safeMonthKey];
+    state.historyStatus = 'idle';
+    state.historyError = '';
+  }
 }
 
 function isDateKeyInVisibleMonth(dateKey) {
@@ -576,6 +626,17 @@ function resetCalendarState() {
   state.bulkActionFeedback = '';
   state.bulkActionFeedbackType = '';
   clearRangeSelectionState();
+
+  state.historyPeriod = '3m';
+  state.historyStatus = 'idle';
+  state.historyError = '';
+  state.historyMetrics = {
+    myNoVoy: 0,
+    myVialia: 0,
+    teamVialiaByUid: {},
+  };
+  state.historyMonthCache = {};
+  state.historyLoadToken = 0;
 }
 
 function mapAuthErrorMessage(error) {
@@ -663,6 +724,14 @@ function renderHeaderActions() {
       </button>
       <nav class="header-menu ${state.headerMobileMenuOpen ? 'is-open' : ''}" aria-label="Menú principal">
         <button
+          id="header-history-btn"
+          class="header-menu-item header-menu-item--history"
+          type="button"
+          ${state.isSigningOut ? 'disabled' : ''}
+        >
+          Historial
+        </button>
+        <button
           id="header-settings-btn"
           class="header-menu-item header-menu-item--settings"
           type="button"
@@ -706,6 +775,14 @@ function renderHeaderActions() {
     if (headerSettingsButton) {
       headerSettingsButton.addEventListener('click', () => {
         openSettingsModal('menu');
+      });
+    }
+
+    const headerHistoryButton = document.getElementById('header-history-btn');
+    if (headerHistoryButton) {
+      headerHistoryButton.addEventListener('click', () => {
+        state.headerMobileMenuOpen = false;
+        goTo(ROUTES.HISTORY);
       });
     }
     return;
@@ -1020,6 +1097,218 @@ function getMultiSelectionCountLabel() {
   return `${count} ${count === 1 ? 'día' : 'días'}`;
 }
 
+function computeHistoryMetrics({ monthKeys, todayKey, currentUid }) {
+  const teamVialiaByUid = {};
+  state.legendRosterUsers.forEach((user) => {
+    if (user?.uid) {
+      teamVialiaByUid[user.uid] = 0;
+    }
+  });
+
+  let myNoVoy = 0;
+  let myVialia = 0;
+
+  monthKeys.forEach((monthKey) => {
+    const monthDays = state.historyMonthCache[monthKey] || {};
+    Object.entries(monthDays).forEach(([dateKey, dayMap]) => {
+      if (!DATE_KEY_REGEX.test(dateKey) || dateKey >= todayKey || !dayMap || typeof dayMap !== 'object') {
+        return;
+      }
+
+      Object.entries(dayMap).forEach(([uid, status]) => {
+        if (status === DailyStatus.VIALIA && Object.prototype.hasOwnProperty.call(teamVialiaByUid, uid)) {
+          teamVialiaByUid[uid] += 1;
+        }
+
+        if (uid !== currentUid) {
+          return;
+        }
+
+        if (status === DailyStatus.NO_VOY) {
+          myNoVoy += 1;
+          return;
+        }
+
+        if (status === DailyStatus.VIALIA) {
+          myVialia += 1;
+        }
+      });
+    });
+  });
+
+  return { myNoVoy, myVialia, teamVialiaByUid };
+}
+
+async function refreshHistoryData() {
+  if (!state.authUser || state.profileStatus !== 'ready' || state.historyStatus === 'loading') {
+    return;
+  }
+
+  const expectedUid = state.authUser.uid;
+  const loadToken = ++state.historyLoadToken;
+  const todayKey = getTodayKey();
+  const monthKeys = getHistoryMonthKeys(state.historyPeriod, todayKey);
+
+  state.historyStatus = 'loading';
+  state.historyError = '';
+  refreshCurrentRoute();
+
+  try {
+    const missingMonthKeys = monthKeys.filter((monthKey) => !state.historyMonthCache[monthKey]);
+    if (missingMonthKeys.length > 0) {
+      const missingPayloads = await Promise.all(
+        missingMonthKeys.map((monthKey) => loadMonthDailyStatuses(monthKey)),
+      );
+
+      if (!state.authUser || state.authUser.uid !== expectedUid || loadToken !== state.historyLoadToken) {
+        return;
+      }
+
+      const nextCache = { ...state.historyMonthCache };
+      missingPayloads.forEach((payload) => {
+        if (!payload?.monthKey) {
+          return;
+        }
+        nextCache[payload.monthKey] = payload.days && typeof payload.days === 'object' ? payload.days : {};
+      });
+      state.historyMonthCache = nextCache;
+    }
+
+    if (!state.authUser || state.authUser.uid !== expectedUid || loadToken !== state.historyLoadToken) {
+      return;
+    }
+
+    state.historyMetrics = computeHistoryMetrics({
+      monthKeys,
+      todayKey,
+      currentUid: expectedUid,
+    });
+    state.historyStatus = 'ready';
+    state.historyError = '';
+  } catch (error) {
+    if (!state.authUser || state.authUser.uid !== expectedUid || loadToken !== state.historyLoadToken) {
+      return;
+    }
+
+    if (isFirestorePermissionDeniedError(error)) {
+      await handleAccessDeniedFromFirestore(state.authUser.email);
+      return;
+    }
+
+    state.historyStatus = 'error';
+    state.historyError = 'No se pudo cargar el historial para el periodo seleccionado.';
+  } finally {
+    refreshCurrentRoute();
+  }
+}
+
+function handleHistoryPeriodChange(periodKey) {
+  if (state.historyStatus === 'loading') {
+    return;
+  }
+
+  const nextOption = getHistoryPeriodOption(periodKey);
+  if (!nextOption || nextOption.key === state.historyPeriod) {
+    return;
+  }
+
+  state.historyPeriod = nextOption.key;
+  state.historyStatus = 'idle';
+  state.historyError = '';
+  refreshCurrentRoute();
+}
+
+function buildHistoryFiltersHtml() {
+  return `
+    <div class="history-filters" role="group" aria-label="Filtrar periodo de historial">
+      ${HISTORY_PERIOD_OPTIONS.map((option) => {
+        const isActive = state.historyPeriod === option.key;
+        return `
+          <button
+            type="button"
+            class="history-filter-chip ${isActive ? 'is-active' : ''}"
+            data-history-period="${option.key}"
+            ${state.historyStatus === 'loading' ? 'disabled' : ''}
+          >
+            ${escapeHtml(option.label)}
+          </button>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function buildHistoryTeamVialiaRowsHtml() {
+  if (!state.legendRosterUsers.length) {
+    return '<p class="muted history-empty">No hay usuarios disponibles para mostrar.</p>';
+  }
+
+  return `
+    <ul class="history-user-list">
+      ${state.legendRosterUsers
+        .map((user) => {
+          const count = Number(state.historyMetrics.teamVialiaByUid?.[user.uid] || 0);
+          const inactiveClass = user.isActive === false ? ' is-inactive' : '';
+          return `
+            <li class="history-user-row${inactiveClass}">
+              <div class="history-user-label">
+                <span class="history-user-dot" style="--history-user-color:${escapeHtml(user.color || DEFAULT_PROFILE_COLOR)}"></span>
+                <span class="history-user-name">${escapeHtml(user.name || user.email || `Slot ${user.slotId}`)}</span>
+              </div>
+              <strong class="history-user-count" aria-label="Vialia acumulada">${count}</strong>
+            </li>
+          `;
+        })
+        .join('')}
+    </ul>
+  `;
+}
+
+function buildHistoryContentHtml() {
+  if (state.historyStatus === 'loading' || state.historyStatus === 'idle') {
+    return '<p class="muted history-loading">Cargando historial...</p>';
+  }
+
+  if (state.historyStatus === 'error') {
+    return `<p class="auth-message auth-message--error">${escapeHtml(
+      state.historyError || 'No se pudo cargar el historial.',
+    )}</p>`;
+  }
+
+  return `
+    <div class="history-grid">
+      <section class="history-card">
+        <h3>Vialia del equipo</h3>
+        <p class="muted history-card-hint">Conteo público de Vialia por integrante (orden por slot).</p>
+        ${buildHistoryTeamVialiaRowsHtml()}
+      </section>
+      <section class="history-card">
+        <h3>Mi actividad</h3>
+        <p class="muted history-card-hint">Solo se cuentan fechas anteriores a hoy.</p>
+        <ul class="history-metrics-list">
+          <li class="history-metric-row">
+            <span class="history-metric-label">Mis NO VOY</span>
+            <strong class="history-metric-value">${Number(state.historyMetrics.myNoVoy || 0)}</strong>
+          </li>
+          <li class="history-metric-row history-metric-row--soft">
+            <span class="history-metric-label">Mis Vialia</span>
+            <strong class="history-metric-value">${Number(state.historyMetrics.myVialia || 0)}</strong>
+          </li>
+        </ul>
+      </section>
+    </div>
+  `;
+}
+
+function bindHistoryEvents() {
+  const periodButtons = document.querySelectorAll('[data-history-period]');
+  periodButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      handleHistoryPeriodChange(String(button.dataset.historyPeriod || ''));
+    });
+  });
+}
+
 function getVisibleMonthBounds() {
   const year = state.visibleMonthDate.getFullYear();
   const monthIndex = state.visibleMonthDate.getMonth();
@@ -1154,6 +1443,7 @@ async function handleBulkAction(action) {
     return;
   }
 
+  const targetMonthKey = getMonthKeyFromDate(state.visibleMonthDate);
   state.isBulkApplying = true;
   state.bulkActionFeedback = '';
   state.bulkActionFeedbackType = '';
@@ -1161,12 +1451,13 @@ async function handleBulkAction(action) {
 
   try {
     await applyBulkUserDailyStatus({
-      monthKey: getMonthKeyFromDate(state.visibleMonthDate),
+      monthKey: targetMonthKey,
       dateKeys: selectedDateKeys,
       uid: state.authUser.uid,
       status: action,
     });
 
+    invalidateHistoryMonthCache(targetMonthKey);
     clearMultiSelection({ refresh: false, clearFeedback: false });
     state.bulkActionFeedback = action === DailyStatus.VOY ? 'Aplicado: VOY.' : 'Aplicado: NO VOY.';
     state.bulkActionFeedbackType = 'success';
@@ -2224,6 +2515,76 @@ function renderCalendar() {
   }
 }
 
+function renderHistory() {
+  if (state.authStatus === 'loading') {
+    renderLoadingPanel('Verificando sesión...');
+    return;
+  }
+
+  if (state.authStatus !== 'authenticated') {
+    goTo(ROUTES.LOGIN);
+    return;
+  }
+
+  switch (state.profileStatus) {
+    case 'loading':
+      renderLoadingPanel('Cargando perfil...');
+      return;
+    case 'needs_profile':
+      renderProfileSetup();
+      return;
+    case 'full':
+      renderProfileFull();
+      return;
+    case 'error':
+      renderProfileError();
+      return;
+    case 'ready':
+      break;
+    default:
+      renderLoadingPanel('Preparando perfil...');
+      return;
+  }
+
+  if (state.legendStatus === 'idle') {
+    refreshLegendUsers({ showLoading: true });
+  }
+
+  if (state.legendStatus === 'loading') {
+    renderLoadingPanel('Cargando historial...');
+    return;
+  }
+
+  if (state.legendStatus === 'error') {
+    appRoot.innerHTML = `
+      <section class="panel auth-panel">
+        <h2>Historial</h2>
+        <p class="auth-message auth-message--error">${escapeHtml(
+          state.legendError || 'No se pudo preparar el historial.',
+        )}</p>
+      </section>
+    `;
+    return;
+  }
+
+  if (state.historyStatus === 'idle') {
+    refreshHistoryData();
+  }
+
+  appRoot.innerHTML = `
+    <section class="panel history-panel">
+      <header class="history-header">
+        <h2>Historial</h2>
+        <p class="muted history-header-hint">Solo cuentan fechas anteriores a hoy.</p>
+        ${buildHistoryFiltersHtml()}
+      </header>
+      ${buildHistoryContentHtml()}
+    </section>
+  `;
+
+  bindHistoryEvents();
+}
+
 function renderRoute(route) {
   renderHeaderActions();
   if (route !== ROUTES.CALENDAR && state.isMultiSelectMode) {
@@ -2253,6 +2614,9 @@ function renderRoute(route) {
       break;
     case ROUTES.CALENDAR:
       renderCalendar();
+      break;
+    case ROUTES.HISTORY:
+      renderHistory();
       break;
     default:
       renderHomeInfo();
@@ -2517,6 +2881,7 @@ async function handleStatusUpdate(status, targetDateKey = state.dayModalDateKey 
       uid: state.authUser.uid,
       status,
     });
+    invalidateHistoryMonthCache(monthKey);
     showToast({ type: 'success', message: 'Estado actualizado.' });
     closeDayModal({ skipRefresh: true });
   } catch (error) {
@@ -2730,6 +3095,7 @@ async function bootstrap() {
       [ROUTES.HOME]: () => renderRoute(ROUTES.HOME),
       [ROUTES.LOGIN]: () => renderRoute(ROUTES.LOGIN),
       [ROUTES.CALENDAR]: () => renderRoute(ROUTES.CALENDAR),
+      [ROUTES.HISTORY]: () => renderRoute(ROUTES.HISTORY),
     },
     fallbackRoute: ROUTES.LOGIN,
   });
