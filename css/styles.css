@@ -762,7 +762,7 @@ h1 {
   text-align: center;
   font-size: 1.14rem;
   letter-spacing: -0.01em;
-  text-transform: capitalize;
+  text-transform: none;
 }
 
 .btn.btn-month-nav {
@@ -1140,7 +1140,7 @@ h1 {
   margin: 0;
   font-size: 1.1rem;
   letter-spacing: -0.012em;
-  text-transform: capitalize;
+  text-transform: none;
 }
 
 .day-modal-shift {
@@ -1917,7 +1917,7 @@ h1 {
   }
 
   .legend-list {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -1971,6 +1971,10 @@ h1 {
 
   .header-menu-item--settings {
     justify-content: center;
+  }
+
+  .legend-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -2056,7 +2060,7 @@ h1 {
   }
 
   .legend-list {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
