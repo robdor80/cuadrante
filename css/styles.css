@@ -103,7 +103,6 @@ body.modal-open {
 }
 
 .site-header {
-  border-bottom: 1px solid var(--border);
   background: transparent;
 }
 
