@@ -1349,7 +1349,7 @@ h1 {
 
 .calendar-day-number {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 0.9rem;
   font-weight: 700;
   line-height: 1.1;
 }
@@ -1379,7 +1379,7 @@ h1 {
   align-items: center;
   justify-content: center;
   line-height: 1.1;
-  font-size: 0.96rem;
+  font-size: 1.18rem;
   font-weight: 800;
   position: relative;
   z-index: 1;
@@ -1543,7 +1543,7 @@ h1 {
   }
 
   .calendar-day-number {
-    font-size: 0.95rem;
+    font-size: 0.8rem;
   }
 
   .shift-code {
@@ -1555,7 +1555,7 @@ h1 {
 
   .calendar-availability-slot {
     margin-top: 4px;
-    font-size: 0.86rem;
+    font-size: 0.98rem;
   }
 
   .calendar-day.has-own-no-voy::after {
@@ -1760,7 +1760,7 @@ h1 {
   }
 
   .calendar-day-number {
-    font-size: 1.2rem;
+    font-size: 0.96rem;
   }
 
   .shift-code {
@@ -1772,7 +1772,7 @@ h1 {
 
   .calendar-availability-slot {
     margin-top: 7px;
-    font-size: 0.94rem;
+    font-size: 1.18rem;
   }
 
   .calendar-day.has-own-no-voy::after {
@@ -1884,7 +1884,7 @@ h1 {
 
   .calendar-availability-slot {
     margin-top: 8px;
-    font-size: 0.98rem;
+    font-size: 1.22rem;
   }
 
   .day-modal-card {
@@ -1915,7 +1915,7 @@ h1 {
   }
 
   .calendar-day-number {
-    font-size: 1.3rem;
+    font-size: 1.02rem;
   }
 
   .shift-code {
@@ -1928,7 +1928,7 @@ h1 {
 
   .calendar-availability-slot {
     margin-top: 9px;
-    font-size: 1.04rem;
+    font-size: 1.3rem;
   }
 
   .legend-list {
