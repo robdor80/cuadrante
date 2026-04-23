@@ -1196,6 +1196,7 @@ function buildMultiSelectBarHtml() {
 
   const hasSelection = state.multiSelectedDateKeys.size > 0;
   const disabledAttr = hasSelection && !state.isBulkApplying ? '' : 'disabled';
+  const exitDisabledAttr = state.isBulkApplying ? 'disabled' : '';
   const feedbackHtml = state.bulkActionFeedback
     ? `<p class="multi-select-bar__feedback ${
         state.bulkActionFeedbackType === 'error' ? 'is-error' : 'is-success'
@@ -1206,7 +1207,18 @@ function buildMultiSelectBarHtml() {
     <div class="multi-select-bar" aria-label="Acciones de multiselección">
       <div class="multi-select-bar__inner">
         <div class="multi-select-bar__card">
-          <p class="multi-select-bar__count muted">${escapeHtml(getMultiSelectionCountLabel())}</p>
+          <div class="multi-select-bar__head">
+            <p class="multi-select-bar__count muted">${escapeHtml(getMultiSelectionCountLabel())}</p>
+            <button
+              id="multi-select-exit-btn"
+              type="button"
+              class="btn btn-secondary btn-multi-exit"
+              aria-label="Salir de selección múltiple"
+              ${exitDisabledAttr}
+            >
+              Salir
+            </button>
+          </div>
           <div class="multi-select-bar__actions">
             <button
               id="bulk-voy-btn"
@@ -1287,6 +1299,17 @@ function buildMultiSelectRangeHtml() {
 function bindMultiSelectBarEvents() {
   if (!state.isMultiSelectMode) {
     return;
+  }
+
+  const exitButton = document.getElementById('multi-select-exit-btn');
+  if (exitButton) {
+    exitButton.addEventListener('click', () => {
+      if (state.isBulkApplying) {
+        return;
+      }
+      setMultiSelectMode(false);
+      refreshCurrentRoute();
+    });
   }
 
   const bulkVoyButton = document.getElementById('bulk-voy-btn');

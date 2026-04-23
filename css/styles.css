@@ -684,10 +684,38 @@ h1 {
   padding: 9px;
 }
 
+.multi-select-bar__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .multi-select-bar__count {
   margin: 0;
   font-size: 0.76rem;
   line-height: 1.2;
+}
+
+.btn.btn-multi-exit {
+  min-height: 33px;
+  padding: 6px 11px;
+  border-radius: 10px;
+  border-color: rgba(143, 164, 184, 0.56);
+  background: rgba(236, 244, 252, 0.92);
+  color: #264862;
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.btn.btn-multi-exit:hover:not(:disabled) {
+  background: rgba(222, 236, 250, 0.95);
+  border-color: rgba(122, 146, 168, 0.62);
+}
+
+.btn.btn-multi-exit:disabled {
+  opacity: 0.55;
 }
 
 .multi-select-bar__actions {
@@ -1580,6 +1608,12 @@ h1 {
     font-size: 0.72rem;
   }
 
+  .btn.btn-multi-exit {
+    min-height: 32px;
+    padding: 5px 10px;
+    font-size: 0.72rem;
+  }
+
   .multi-select-bar__actions .btn {
     padding: 8px 8px;
     font-size: 0.74rem;
@@ -1785,6 +1819,11 @@ h1 {
 
   .multi-select-bar__count {
     font-size: 0.78rem;
+  }
+
+  .btn.btn-multi-exit {
+    min-height: 34px;
+    font-size: 0.76rem;
   }
 
   .multi-select-bar__actions .btn {
