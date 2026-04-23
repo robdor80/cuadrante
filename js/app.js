@@ -16,19 +16,21 @@ import {
   isAuthReadyForUse,
   isFirebaseConfigured,
   listActiveProfilesBySlot,
+  listProfilesBySlot,
   loadUserProfile,
   observeAuthState,
   saveUserDailyStatus,
   signInWithGoogle,
   signOutUser,
   subscribeMonthDailyStatuses,
+  updateUserProfileSettings,
 } from './firebase.js';
 import { createHashRouter } from './router.js';
 import { getMonthGrid6x7, getShiftKindForDate } from './shiftCycle.js';
 
 const appRoot = document.getElementById('app');
 const headerActionsRoot = document.getElementById('header-actions');
-const WEEKDAY_LABELS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+const WEEKDAY_LABELS = ['lunes', 'martes', 'miÃ©rcoles', 'jueves', 'viernes', 'sÃ¡bado', 'domingo'];
 const ROUTE_SET = new Set([ROUTES.HOME, ROUTES.LOGIN, ROUTES.CALENDAR]);
 const DEFAULT_PROFILE_COLOR = PROFILE_COLOR_OPTIONS[0]?.value || '#1d4ed8';
 const MONTH_KEY_REGEX = /^\d{4}-\d{2}$/;
@@ -94,6 +96,18 @@ const state = {
   headerMobileMenuOpen: false,
   settingsModalOpen: false,
   settingsModalView: 'menu',
+  settingsUsersStatus: 'idle',
+  settingsUsers: [],
+  settingsUsersError: '',
+  settingsEditingUid: '',
+  settingsEditorOpen: false,
+  settingsEditorDraft: {
+    name: '',
+    color: DEFAULT_PROFILE_COLOR,
+    isActive: true,
+  },
+  settingsEditorError: '',
+  settingsEditorSaving: false,
   isOnline: typeof navigator === 'undefined' ? true : navigator.onLine,
   toastCurrent: null,
   toastQueue: [],
@@ -160,7 +174,7 @@ function getToastDurationByType(type) {
 function renderGlobalFeedbackUI() {
   const root = ensureGlobalFeedbackRoot();
   const offlineBadgeHtml = !state.isOnline
-    ? '<div class="connection-badge connection-badge--offline" role="status">Sin conexión</div>'
+    ? '<div class="connection-badge connection-badge--offline" role="status">Sin conexiÃ³n</div>'
     : '';
   const toast = state.toastCurrent;
   const toastHtml = toast
@@ -346,7 +360,7 @@ function shouldHaveActiveMonthRealtimeListener() {
 }
 
 function syncBodyModalOpenState() {
-  if (state.dayModalOpen || state.settingsModalOpen) {
+  if (state.dayModalOpen || state.settingsModalOpen || state.settingsEditorOpen) {
     document.body.classList.add('modal-open');
     return;
   }
@@ -367,6 +381,10 @@ function closeDayModal({ skipRefresh = false } = {}) {
 function closeSettingsModal({ skipRefresh = false } = {}) {
   state.settingsModalOpen = false;
   state.settingsModalView = 'menu';
+  state.settingsEditorOpen = false;
+  state.settingsEditingUid = '';
+  state.settingsEditorError = '';
+  state.settingsEditorSaving = false;
   syncBodyModalOpenState();
 
   if (!skipRefresh) {
@@ -381,6 +399,9 @@ function goToSettingsView(view) {
   }
 
   state.settingsModalView = nextView;
+  if (nextView === 'edit_users') {
+    refreshSettingsUsers({ showLoading: state.settingsUsersStatus !== 'ready' });
+  }
   refreshCurrentRoute();
 }
 
@@ -394,8 +415,74 @@ function openSettingsModal(view = 'menu') {
 
   state.settingsModalView = nextView;
   state.settingsModalOpen = true;
+  state.settingsEditorOpen = false;
+  state.settingsEditingUid = '';
+  state.settingsEditorError = '';
+  state.settingsEditorSaving = false;
+  syncBodyModalOpenState();
+  if (nextView === 'edit_users') {
+    refreshSettingsUsers({ showLoading: state.settingsUsersStatus !== 'ready' });
+  }
+  refreshCurrentRoute();
+}
+
+function closeSettingsUserEditor({ skipRefresh = false } = {}) {
+  state.settingsEditorOpen = false;
+  state.settingsEditingUid = '';
+  state.settingsEditorError = '';
+  state.settingsEditorSaving = false;
+  syncBodyModalOpenState();
+  if (!skipRefresh) {
+    refreshCurrentRoute();
+  }
+}
+
+function openSettingsUserEditor(uid) {
+  const targetUid = String(uid || '').trim();
+  if (!targetUid) {
+    return;
+  }
+
+  const user = state.settingsUsers.find((item) => item.uid === targetUid);
+  if (!user) {
+    return;
+  }
+
+  state.settingsEditingUid = user.uid;
+  state.settingsEditorDraft = {
+    name: user.name || '',
+    color: user.color || DEFAULT_PROFILE_COLOR,
+    isActive: user.isActive !== false,
+  };
+  state.settingsEditorError = '';
+  state.settingsEditorSaving = false;
+  state.settingsEditorOpen = true;
   syncBodyModalOpenState();
   refreshCurrentRoute();
+}
+
+function handleSettingsEditorNameChange(value) {
+  state.settingsEditorDraft = {
+    ...state.settingsEditorDraft,
+    name: String(value || ''),
+  };
+  state.settingsEditorError = '';
+}
+
+function handleSettingsEditorColorChange(value) {
+  state.settingsEditorDraft = {
+    ...state.settingsEditorDraft,
+    color: String(value || DEFAULT_PROFILE_COLOR),
+  };
+  state.settingsEditorError = '';
+}
+
+function toggleSettingsEditorActive() {
+  state.settingsEditorDraft = {
+    ...state.settingsEditorDraft,
+    isActive: !state.settingsEditorDraft.isActive,
+  };
+  state.settingsEditorError = '';
 }
 
 function clearMultiSelection({ refresh = false, clearFeedback = true } = {}) {
@@ -479,18 +566,18 @@ function resetCalendarState() {
 
 function mapAuthErrorMessage(error) {
   if (!error || typeof error !== 'object') {
-    return 'No se pudo iniciar sesión con Google.';
+    return 'No se pudo iniciar sesiÃ³n con Google.';
   }
 
   switch (error.code) {
     case 'auth/popup-closed-by-user':
-      return 'Se cerró la ventana de Google antes de completar el acceso.';
+      return 'Se cerrÃ³ la ventana de Google antes de completar el acceso.';
     case 'auth/popup-blocked':
-      return 'El navegador bloqueó el popup. Permite popups para continuar.';
+      return 'El navegador bloqueÃ³ el popup. Permite popups para continuar.';
     case 'auth/cancelled-popup-request':
       return 'Ya había un intento de login en curso.';
     default:
-      return 'Error de autenticación con Google. Inténtalo de nuevo.';
+      return 'Error de autenticaciÃ³n con Google. IntÃ©ntalo de nuevo.';
   }
 }
 
@@ -552,7 +639,7 @@ function renderHeaderActions() {
         id="header-mobile-menu-toggle"
         class="header-mobile-menu-toggle"
         type="button"
-        aria-label="Abrir menú"
+        aria-label="Abrir menÃº"
         aria-expanded="${state.headerMobileMenuOpen ? 'true' : 'false'}"
         ${state.isSigningOut ? 'disabled' : ''}
       >
@@ -560,7 +647,7 @@ function renderHeaderActions() {
         <span class="header-mobile-menu-line"></span>
         <span class="header-mobile-menu-line"></span>
       </button>
-      <nav class="header-menu ${state.headerMobileMenuOpen ? 'is-open' : ''}" aria-label="Menú principal">
+      <nav class="header-menu ${state.headerMobileMenuOpen ? 'is-open' : ''}" aria-label="MenÃº principal">
         <button
           id="header-settings-btn"
           class="header-menu-item header-menu-item--settings"
@@ -573,7 +660,7 @@ function renderHeaderActions() {
           id="header-logout-menu-btn"
           class="header-menu-item header-menu-item--logout"
           type="button"
-          aria-label="Cerrar sesión"
+          aria-label="Cerrar sesiÃ³n"
           ${state.isSigningOut ? 'disabled' : ''}
         >
           <span class="logout-icon" aria-hidden="true">
@@ -629,6 +716,19 @@ function resetProfileState() {
   state.legendUsers = [];
   state.legendError = '';
 
+  state.settingsUsersStatus = 'idle';
+  state.settingsUsers = [];
+  state.settingsUsersError = '';
+  state.settingsEditingUid = '';
+  state.settingsEditorOpen = false;
+  state.settingsEditorDraft = {
+    name: '',
+    color: DEFAULT_PROFILE_COLOR,
+    isActive: true,
+  };
+  state.settingsEditorError = '';
+  state.settingsEditorSaving = false;
+
   resetCalendarState();
 }
 
@@ -654,7 +754,7 @@ function validateProfileInput(name, color) {
   }
 
   if (!allowedColors.has(color)) {
-    return { ok: false, message: 'Selecciona un color válido de la paleta.' };
+    return { ok: false, message: 'Selecciona un color vÃ¡lido de la paleta.' };
   }
 
   return {
@@ -703,14 +803,14 @@ function renderLogin() {
   if (state.deniedEmail) {
     statusBlock = `
       <p class="auth-message auth-message--denied">
-        Acceso denegado: el email <strong>${escapeHtml(state.deniedEmail)}</strong> no está autorizado.
+        Acceso denegado: el email <strong>${escapeHtml(state.deniedEmail)}</strong> no estÃ¡ autorizado.
       </p>
     `;
   } else if (state.authError) {
     statusBlock = `<p class="auth-message auth-message--error">${escapeHtml(state.authError)}</p>`;
   } else if (!isFirebaseReady) {
     statusBlock =
-      '<p class="auth-message auth-message--warn">Firebase no está configurado todavía. Revisa js/config.js.</p>';
+      '<p class="auth-message auth-message--warn">Firebase no estÃ¡ configurado todavía. Revisa js/config.js.</p>';
   }
 
   appRoot.innerHTML = `
@@ -767,7 +867,7 @@ function buildLegendContent() {
   }
 
   if (!state.legendUsers.length) {
-    return '<p class="muted legend-status">Aún no hay integrantes activos.</p>';
+    return '<p class="muted legend-status">AÃºn no hay integrantes activos.</p>';
   }
 
   const items = state.legendUsers
@@ -795,7 +895,7 @@ function getStatusByUidForDate(dateKey) {
 function getWorkingCountForDate(dateKey) {
   const dayMap = getStatusByUidForDate(dateKey);
 
-  if (state.legendUsers.length > 0) {
+  if (state.legendStatus === 'ready') {
     let noVoyCount = 0;
     state.legendUsers.forEach((user) => {
       if (dayMap[user.uid] === DailyStatus.NO_VOY) {
@@ -846,7 +946,7 @@ function getDailyStatusInfoHtml() {
     )}</p>`;
   }
 
-  return '<p class="muted daily-status-info">El número en cada día indica cuántos trabajan ese día.</p>';
+  return '<p class="muted daily-status-info">El nÃºmero en cada día indica cuÃ¡ntos trabajan ese día.</p>';
 }
 
 function getMultiSelectionCountLabel() {
@@ -908,7 +1008,7 @@ function validateRangeSelection(startDateKey, endDateKey) {
   }
 
   if (!DATE_KEY_REGEX.test(startDateKey) || !DATE_KEY_REGEX.test(endDateKey)) {
-    return { ok: false, message: 'Fecha inválida.' };
+    return { ok: false, message: 'Fecha invÃ¡lida.' };
   }
 
   if (startDateKey > endDateKey) {
@@ -950,7 +1050,7 @@ function handleApplyRangeSelection() {
 
   const selectableDateKeys = getSelectableDateKeysFromRange(state.rangeStartDateKey, state.rangeEndDateKey);
   if (!selectableDateKeys.length) {
-    state.rangeFeedback = 'Sin días válidos en rango.';
+    state.rangeFeedback = 'Sin días vÃ¡lidos en rango.';
     state.rangeFeedbackType = 'error';
     refreshCurrentRoute();
     return;
@@ -1037,7 +1137,7 @@ function buildMultiSelectBarHtml() {
     : '';
 
   return `
-    <div class="multi-select-bar" aria-label="Acciones de multiselección">
+    <div class="multi-select-bar" aria-label="Acciones de multiselecciÃ³n">
       <div class="multi-select-bar__inner">
         <div class="multi-select-bar__card">
           <p class="multi-select-bar__count muted">${escapeHtml(getMultiSelectionCountLabel())}</p>
@@ -1079,8 +1179,8 @@ function buildMultiSelectRangeHtml() {
     : '';
 
   return `
-    <section class="multi-range-tool" aria-label="Selección por rango en multiselección">
-      <p class="multi-range-tool__title">Rango rápido (multiselección)</p>
+    <section class="multi-range-tool" aria-label="SelecciÃ³n por rango en multiselecciÃ³n">
+      <p class="multi-range-tool__title">Rango rÃ¡pido (multiselecciÃ³n)</p>
       <div class="multi-range-tool__inputs">
         <label class="multi-range-tool__field">
           <span>Inicio</span>
@@ -1170,7 +1270,7 @@ function bindMultiSelectRangeEvents() {
 function getShiftLabel(shiftKind) {
   switch (shiftKind) {
     case 'ma\u00f1ana':
-      return 'Mañana';
+      return 'MaÃ±ana';
     case 'tarde':
       return 'Tarde';
     case 'noche':
@@ -1311,7 +1411,7 @@ function buildDayModalHtml() {
           </div>
           ${
             !vialiaAllowed
-              ? '<p class="muted day-modal-hint">Vialia solo está disponible en tardes laborables.</p>'
+              ? '<p class="muted day-modal-hint">Vialia solo estÃ¡ disponible en tardes laborables.</p>'
               : ''
           }
           ${state.dayModalError ? `<p class="auth-message auth-message--error">${escapeHtml(state.dayModalError)}</p>` : ''}
@@ -1323,29 +1423,33 @@ function buildDayModalHtml() {
 }
 
 function buildSettingsEditUsersContent() {
-  if (state.legendStatus === 'loading') {
+  if (state.settingsUsersStatus === 'loading') {
     return '<p class="muted settings-modal-empty">Cargando usuarios...</p>';
   }
 
-  if (state.legendStatus === 'error') {
+  if (state.settingsUsersStatus === 'error') {
     return `<p class="auth-message auth-message--error">${escapeHtml(
-      state.legendError || 'No se pudieron cargar los usuarios.',
+      state.settingsUsersError || 'No se pudieron cargar los usuarios.',
     )}</p>`;
   }
 
-  if (!state.legendUsers.length) {
-    return '<p class="muted settings-modal-empty">No hay usuarios activos.</p>';
+  if (!state.settingsUsers.length) {
+    return '<p class="muted settings-modal-empty">No hay usuarios para editar.</p>';
   }
 
-  const items = state.legendUsers
+  const items = state.settingsUsers
     .map(
       (user) => `
         <li class="settings-user-item">
-          <span class="settings-user-dot" style="--settings-user-color:${escapeHtml(user.color || DEFAULT_PROFILE_COLOR)}"></span>
-          <div class="settings-user-main">
-            <p class="settings-user-name">${escapeHtml(user.name || user.email || `Slot ${user.slotId}`)}</p>
-            <p class="settings-user-meta">Slot ${escapeHtml(String(user.slotId || '-'))} - ${escapeHtml(user.email || 'Sin email')}</p>
-          </div>
+          <button
+            type="button"
+            class="settings-user-btn ${user.isActive === false ? 'is-inactive' : ''}"
+            data-settings-user-open="${escapeHtml(user.uid)}"
+            aria-label="Editar ${escapeHtml(user.name || user.email || 'usuario')}"
+          >
+            <span class="settings-user-dot" style="--settings-user-color:${escapeHtml(user.color || DEFAULT_PROFILE_COLOR)}"></span>
+            <span class="settings-user-name">${escapeHtml(user.name || user.email || 'Sin nombre')}</span>
+          </button>
         </li>
       `,
     )
@@ -1355,18 +1459,13 @@ function buildSettingsEditUsersContent() {
 }
 
 function buildSettingsModalHtml() {
-  if (!state.settingsModalOpen) {
+  if (!state.settingsModalOpen || state.settingsEditorOpen) {
     return '';
   }
 
   const isEditUsers = state.settingsModalView === 'edit_users';
   const bodyHtml = isEditUsers
     ? `
-      <div class="settings-modal-toolbar">
-        <button id="settings-back-btn" type="button" class="btn btn-secondary settings-back-btn">
-          Volver
-        </button>
-      </div>
       ${buildSettingsEditUsersContent()}
     `
     : `
@@ -1406,7 +1505,7 @@ function buildSettingsModalHtml() {
 }
 
 function bindSettingsModalEvents() {
-  if (!state.settingsModalOpen) {
+  if (!state.settingsModalOpen || state.settingsEditorOpen) {
     return;
   }
 
@@ -1433,11 +1532,159 @@ function bindSettingsModalEvents() {
     });
   }
 
-  const settingsBackButton = document.getElementById('settings-back-btn');
-  if (settingsBackButton) {
-    settingsBackButton.addEventListener('click', () => {
-      goToSettingsView('menu');
+  const settingsUserButtons = document.querySelectorAll('[data-settings-user-open]');
+  settingsUserButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      openSettingsUserEditor(String(button.dataset.settingsUserOpen || ''));
     });
+  });
+}
+
+function buildSettingsUserEditorModalHtml() {
+  if (!state.settingsModalOpen || !state.settingsEditorOpen || !state.settingsEditingUid) {
+    return '';
+  }
+
+  const colorOptions = PROFILE_COLOR_OPTIONS.map((option) => {
+    const checked = option.value === state.settingsEditorDraft.color ? 'checked' : '';
+    return `
+      <label class="settings-color-option">
+        <input
+          type="radio"
+          name="settings-user-color"
+          value="${escapeHtml(option.value)}"
+          ${checked}
+          ${state.settingsEditorSaving ? 'disabled' : ''}
+        />
+        <span class="settings-color-dot" style="--settings-user-color:${escapeHtml(option.value)}"></span>
+      </label>
+    `;
+  }).join('');
+
+  const activeText = state.settingsEditorDraft.isActive ? 'Activo' : 'Inactivo';
+  const toggleClass = state.settingsEditorDraft.isActive ? 'is-on' : 'is-off';
+
+  return `
+    <div
+      id="settings-user-editor-overlay"
+      class="settings-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="settings-user-editor-title"
+    >
+      <div class="settings-modal-card settings-editor-card">
+        <header class="settings-modal-header">
+          <h3 id="settings-user-editor-title">Editar usuario</h3>
+          <button
+            id="settings-user-editor-close-btn"
+            type="button"
+            class="btn btn-secondary btn-modal-close"
+            aria-label="Cerrar"
+            ${state.settingsEditorSaving ? 'disabled' : ''}
+          >
+            &times;
+          </button>
+        </header>
+
+        <form id="settings-user-editor-form" class="settings-editor-form">
+          <label class="form-label" for="settings-user-name-input">Nombre de usuario</label>
+          <input
+            id="settings-user-name-input"
+            type="text"
+            maxlength="24"
+            required
+            value="${escapeHtml(state.settingsEditorDraft.name)}"
+            ${state.settingsEditorSaving ? 'disabled' : ''}
+          />
+
+          <p class="form-label">Color</p>
+          <div class="settings-color-grid">
+            ${colorOptions}
+          </div>
+
+          <div class="settings-active-row">
+            <p class="form-label">Estado</p>
+            <button
+              id="settings-user-active-toggle"
+              type="button"
+              class="settings-active-toggle ${toggleClass}"
+              role="switch"
+              aria-checked="${state.settingsEditorDraft.isActive ? 'true' : 'false'}"
+              ${state.settingsEditorSaving ? 'disabled' : ''}
+            >
+              ${activeText}
+            </button>
+          </div>
+
+          ${
+            state.settingsEditorError
+              ? `<p class="auth-message auth-message--error">${escapeHtml(state.settingsEditorError)}</p>`
+              : ''
+          }
+
+          <button
+            id="settings-user-save-btn"
+            type="submit"
+            class="btn btn-primary settings-save-btn"
+            ${state.settingsEditorSaving ? 'disabled' : ''}
+          >
+            ${state.settingsEditorSaving ? 'Guardando...' : 'Guardar cambios'}
+          </button>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
+function bindSettingsUserEditorEvents() {
+  if (!state.settingsEditorOpen) {
+    return;
+  }
+
+  const overlay = document.getElementById('settings-user-editor-overlay');
+  if (overlay) {
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay && !state.settingsEditorSaving) {
+        closeSettingsUserEditor();
+      }
+    });
+  }
+
+  const closeButton = document.getElementById('settings-user-editor-close-btn');
+  if (closeButton) {
+    closeButton.addEventListener('click', () => {
+      closeSettingsUserEditor();
+    });
+  }
+
+  const nameInput = document.getElementById('settings-user-name-input');
+  if (nameInput) {
+    nameInput.addEventListener('input', (event) => {
+      handleSettingsEditorNameChange(event.target?.value || '');
+    });
+  }
+
+  const colorInputs = document.querySelectorAll('input[name="settings-user-color"]');
+  colorInputs.forEach((input) => {
+    input.addEventListener('change', (event) => {
+      handleSettingsEditorColorChange(event.target?.value || DEFAULT_PROFILE_COLOR);
+    });
+  });
+
+  const toggleButton = document.getElementById('settings-user-active-toggle');
+  if (toggleButton) {
+    toggleButton.addEventListener('click', () => {
+      if (state.settingsEditorSaving) {
+        return;
+      }
+      toggleSettingsEditorActive();
+      refreshCurrentRoute();
+    });
+  }
+
+  const form = document.getElementById('settings-user-editor-form');
+  if (form) {
+    form.addEventListener('submit', handleSaveSettingsUserProfile);
   }
 }
 
@@ -1464,7 +1711,7 @@ function renderCalendarGrid() {
       const workingCount = getWorkingCountForDate(dateKey);
       const availabilityClass = getAvailabilityClass(workingCount);
       const availabilityHtml = isWorkShift
-        ? `<div class="calendar-availability-slot ${availabilityClass}" aria-label="Compañeros que trabajan">${workingCount}</div>`
+        ? `<div class="calendar-availability-slot ${availabilityClass}" aria-label="CompaÃ±eros que trabajan">${workingCount}</div>`
         : '';
       const interactiveAttrs = isEditable
         ? 'role="button" tabindex="0"'
@@ -1499,6 +1746,7 @@ function renderCalendarGrid() {
   }).join('');
   const dayModalHtml = buildDayModalHtml();
   const settingsModalHtml = buildSettingsModalHtml();
+  const settingsUserEditorHtml = buildSettingsUserEditorModalHtml();
   const multiSelectRangeHtml = buildMultiSelectRangeHtml();
   const multiSelectBarHtml = buildMultiSelectBarHtml();
   const multiSelectSpacerHtml = state.isMultiSelectMode
@@ -1532,7 +1780,7 @@ function renderCalendarGrid() {
             aria-pressed="${state.isMultiSelectMode ? 'true' : 'false'}"
             ${state.isBulkApplying ? 'disabled' : ''}
           >
-            ${state.isMultiSelectMode ? 'Salir multiselección' : 'Multiselección'}
+            ${state.isMultiSelectMode ? 'Salir multiselecciÃ³n' : 'MultiselecciÃ³n'}
           </button>
           ${multiModeInfo}
         </div>
@@ -1553,10 +1801,11 @@ function renderCalendarGrid() {
 
       ${dayModalHtml}
       ${settingsModalHtml}
+      ${settingsUserEditorHtml}
       ${multiSelectBarHtml}
     </section>
     <footer class="app-authorship" aria-label="Autoría de la web">
-      Web creada por Roberto Dorado Rodríguez · 2026
+      Web creada por Roberto Dorado Rodríguez Â· 2026
     </footer>
   `;
 
@@ -1635,6 +1884,7 @@ function renderCalendarGrid() {
   bindMultiSelectRangeEvents();
   bindMultiSelectBarEvents();
   bindSettingsModalEvents();
+  bindSettingsUserEditorEvents();
 }
 
 function renderProfileSetup() {
@@ -1811,7 +2061,7 @@ function syncMonthRealtimeSubscription({ preserveData = false } = {}) {
 
 function renderCalendar() {
   if (state.authStatus === 'loading') {
-    renderLoadingPanel('Verificando sesión...');
+    renderLoadingPanel('Verificando sesiÃ³n...');
     return;
   }
 
@@ -1860,7 +2110,7 @@ function renderRoute(route) {
   switch (route) {
     case ROUTES.HOME:
       if (state.authStatus === 'loading') {
-        renderLoadingPanel('Verificando sesión...');
+        renderLoadingPanel('Verificando sesiÃ³n...');
       } else if (state.authStatus === 'authenticated') {
         goTo(ROUTES.CALENDAR);
       } else {
@@ -1930,13 +2180,114 @@ async function refreshLegendUsers({ showLoading = false } = {}) {
   }
 }
 
+async function refreshSettingsUsers({ showLoading = false } = {}) {
+  if (!state.authUser) {
+    state.settingsUsersStatus = 'idle';
+    state.settingsUsers = [];
+    state.settingsUsersError = '';
+    return;
+  }
+
+  const expectedUid = state.authUser.uid;
+
+  if (showLoading || state.settingsUsersStatus === 'idle') {
+    state.settingsUsersStatus = 'loading';
+    state.settingsUsersError = '';
+    refreshCurrentRoute();
+  }
+
+  try {
+    const users = await listProfilesBySlot();
+
+    if (!state.authUser || state.authUser.uid !== expectedUid) {
+      return;
+    }
+
+    state.settingsUsers = users;
+    state.settingsUsersStatus = 'ready';
+    state.settingsUsersError = '';
+    if (state.settingsEditorOpen && state.settingsEditingUid) {
+      const current = users.find((item) => item.uid === state.settingsEditingUid);
+      if (!current) {
+        closeSettingsUserEditor({ skipRefresh: true });
+      }
+    }
+  } catch (error) {
+    if (!state.authUser || state.authUser.uid !== expectedUid) {
+      return;
+    }
+
+    if (isFirestorePermissionDeniedError(error)) {
+      await handleAccessDeniedFromFirestore(state.authUser.email);
+      return;
+    }
+
+    state.settingsUsersStatus = 'error';
+    state.settingsUsers = [];
+    state.settingsUsersError = 'No se pudo cargar la lista de usuarios.';
+  }
+}
+
+async function handleSaveSettingsUserProfile(event) {
+  event.preventDefault();
+
+  if (state.settingsEditorSaving || !state.settingsEditingUid) {
+    return;
+  }
+
+  const validation = validateProfileInput(state.settingsEditorDraft.name, state.settingsEditorDraft.color);
+  if (!validation.ok) {
+    state.settingsEditorError = validation.message;
+    refreshCurrentRoute();
+    return;
+  }
+
+  state.settingsEditorSaving = true;
+  state.settingsEditorError = '';
+  refreshCurrentRoute();
+
+  try {
+    const updated = await updateUserProfileSettings({
+      uid: state.settingsEditingUid,
+      name: validation.value.name,
+      color: validation.value.color,
+      isActive: state.settingsEditorDraft.isActive !== false,
+    });
+
+    if (state.profileData?.uid === updated.uid) {
+      state.profileData = {
+        ...state.profileData,
+        name: updated.name,
+        color: updated.color,
+        isActive: updated.isActive,
+      };
+    }
+
+    await Promise.all([refreshLegendUsers({ showLoading: false }), refreshSettingsUsers({ showLoading: false })]);
+    state.settingsEditorSaving = false;
+    closeSettingsUserEditor({ skipRefresh: true });
+    showToast({ type: 'success', message: 'Usuario actualizado.' });
+    refreshCurrentRoute();
+  } catch (error) {
+    if (isFirestorePermissionDeniedError(error)) {
+      await handleAccessDeniedFromFirestore(state.authUser?.email);
+      return;
+    }
+
+    state.settingsEditorError = 'No se pudieron guardar los cambios.';
+    state.settingsEditorSaving = false;
+    showToast({ type: 'error', message: 'Error al guardar usuario.' });
+    refreshCurrentRoute();
+  }
+}
+
 async function handleGoogleLogin() {
   if (state.isSigningIn) {
     return;
   }
 
   if (!isAuthReadyForUse()) {
-    state.authError = 'Firebase no está configurado. Completa js/config.js antes de iniciar sesión.';
+    state.authError = 'Firebase no estÃ¡ configurado. Completa js/config.js antes de iniciar sesiÃ³n.';
     refreshCurrentRoute();
     return;
   }
@@ -1973,10 +2324,10 @@ async function handleLogout() {
 
   try {
     await signOutUser();
-    showToast({ type: 'info', message: 'Sesión cerrada.' });
+    showToast({ type: 'info', message: 'SesiÃ³n cerrada.' });
   } catch (_error) {
-    state.authError = 'No se pudo cerrar sesión. Inténtalo de nuevo.';
-    showToast({ type: 'error', message: 'No se pudo cerrar sesión.' });
+    state.authError = 'No se pudo cerrar sesiÃ³n. IntÃ©ntalo de nuevo.';
+    showToast({ type: 'error', message: 'No se pudo cerrar sesiÃ³n.' });
   } finally {
     state.isSigningOut = false;
     refreshCurrentRoute();
@@ -2009,7 +2360,7 @@ async function handleStatusUpdate(status, targetDateKey = state.dayModalDateKey 
   }
 
   if (status === DailyStatus.VIALIA && !isVialiaAllowedForDate(targetDateKey)) {
-    state.dayModalError = 'Vialia solo está disponible en tardes laborables.';
+    state.dayModalError = 'Vialia solo estÃ¡ disponible en tardes laborables.';
     refreshCurrentRoute();
     return;
   }
@@ -2038,7 +2389,7 @@ async function handleStatusUpdate(status, targetDateKey = state.dayModalDateKey 
       return;
     }
 
-    state.dayModalError = 'No se pudo guardar el estado diario. Inténtalo de nuevo.';
+    state.dayModalError = 'No se pudo guardar el estado diario. IntÃ©ntalo de nuevo.';
     showToast({ type: 'error', message: 'No se pudo guardar el estado.' });
   } finally {
     state.isDailyStatusSaving = false;
@@ -2097,7 +2448,7 @@ async function handleProfileSubmit(event) {
       state.profileError = 'El turno ya tiene 6 integrantes. No quedan plazas libres.';
     } else {
       state.profileStatus = 'needs_profile';
-      state.profileError = 'No se pudo completar el alta. Inténtalo de nuevo.';
+      state.profileError = 'No se pudo completar el alta. IntÃ©ntalo de nuevo.';
     }
   } finally {
     state.isProfileSaving = false;
@@ -2163,7 +2514,7 @@ async function resolveProfileForAuthenticatedUser(firebaseUser) {
     }
 
     state.profileStatus = 'error';
-    state.profileError = 'No se pudo cargar la información de perfil/plazas. Revisa Firestore y permisos.';
+    state.profileError = 'No se pudo cargar la informaciÃ³n de perfil/plazas. Revisa Firestore y permisos.';
   }
 
   refreshCurrentRoute();
@@ -2176,6 +2527,12 @@ async function bootstrap() {
 
   window.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') {
+      return;
+    }
+
+    if (state.settingsEditorOpen) {
+      event.preventDefault();
+      closeSettingsUserEditor();
       return;
     }
 
@@ -2217,7 +2574,7 @@ async function bootstrap() {
 
     state.isOnline = false;
     renderGlobalFeedbackUI();
-    showToast({ type: 'warning', message: 'Sin conexión.' });
+    showToast({ type: 'warning', message: 'Sin conexiÃ³n.' });
   });
 
   window.addEventListener('online', () => {
@@ -2227,7 +2584,7 @@ async function bootstrap() {
 
     state.isOnline = true;
     renderGlobalFeedbackUI();
-    showToast({ type: 'success', message: 'Conexión recuperada.' });
+    showToast({ type: 'success', message: 'ConexiÃ³n recuperada.' });
   });
 
   const router = createHashRouter({

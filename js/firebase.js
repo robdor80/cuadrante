@@ -53,6 +53,7 @@ function normalizeProfileRecord(raw) {
     name: String(raw.name || ''),
     color: String(raw.color || ''),
     slotId: Number(raw.slotId || 0),
+    isActive: raw.isActive !== false,
     createdAt: raw.createdAt || null,
     updatedAt: raw.updatedAt || null,
   };
@@ -240,6 +241,29 @@ export async function listActiveProfilesBySlot() {
         profile.uid &&
         Number.isInteger(profile.slotId) &&
         profile.slotId >= 1 &&
+        profile.slotId <= SLOT_COUNT &&
+        profile.isActive !== false,
+    )
+    .sort((a, b) => a.slotId - b.slotId);
+
+  return users;
+}
+
+export async function listProfilesBySlot() {
+  const db = initFirestore();
+  if (!db) {
+    throw new Error('Firestore no configurado.');
+  }
+
+  const usersSnap = await getDocs(collection(db, 'users'));
+  const users = usersSnap.docs
+    .map((snap) => normalizeProfileRecord(snap.data()))
+    .filter(
+      (profile) =>
+        profile &&
+        profile.uid &&
+        Number.isInteger(profile.slotId) &&
+        profile.slotId >= 1 &&
         profile.slotId <= SLOT_COUNT,
     )
     .sort((a, b) => a.slotId - b.slotId);
@@ -306,6 +330,7 @@ export async function createUserProfileWithAutoSlot({ uid, email, name, color })
       name,
       color,
       slotId: freeSlotId,
+      isActive: true,
       createdAt: now,
       updatedAt: now,
     });
@@ -529,3 +554,53 @@ export async function applyBulkUserDailyStatus({ monthKey, dateKeys, uid, status
   return { changed: hasChanges };
 }
 
+export async function updateUserProfileSettings({ uid, name, color, isActive }) {
+  const safeUid = String(uid || '').trim();
+  if (!safeUid) {
+    throw new Error('uid inválido.');
+  }
+
+  const safeName = String(name || '').trim();
+  if (safeName.length < 2 || safeName.length > 24) {
+    throw new Error('Nombre inválido.');
+  }
+
+  const safeColor = String(color || '').trim();
+  if (!safeColor) {
+    throw new Error('Color inválido.');
+  }
+
+  const db = initFirestore();
+  if (!db) {
+    throw new Error('Firestore no configurado.');
+  }
+
+  const userRef = doc(db, 'users', safeUid);
+
+  await runTransaction(db, async (tx) => {
+    const userSnap = await tx.get(userRef);
+    if (!userSnap.exists()) {
+      const error = new Error('Usuario no encontrado.');
+      error.code = 'user/not-found';
+      throw error;
+    }
+
+    tx.set(
+      userRef,
+      {
+        name: safeName,
+        color: safeColor,
+        isActive: isActive !== false,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  });
+
+  const updatedSnap = await getDoc(userRef);
+  if (!updatedSnap.exists()) {
+    throw new Error('No se pudo recuperar el usuario actualizado.');
+  }
+
+  return normalizeProfileRecord(updatedSnap.data());
+}
