@@ -28,7 +28,7 @@ let authInitPromise = null;
 let slotsInitPromise = null;
 
 const DAILY_STATUS_MONTHS_COLLECTION = 'daily_status_months';
-const STATUS_PERSISTED_SET = new Set([DailyStatus.NO_VOY, DailyStatus.VIALIA]);
+const STATUS_PERSISTED_SET = new Set([DailyStatus.NO_VOY, DailyStatus.VIALIA, DailyStatus.CAMBIO]);
 
 function hasValidConfig() {
   return Object.values(FIREBASE_CONFIG).every((value) => typeof value === 'string' && value.trim() !== '');
@@ -84,6 +84,18 @@ function normalizeProfileRecord(raw) {
   };
 }
 
+function normalizeCompanionName(value) {
+  const safe = String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (safe.length < 2 || safe.length > 40) {
+    return '';
+  }
+
+  return safe;
+}
+
 function normalizeMonthDays(rawDays) {
   if (!rawDays || typeof rawDays !== 'object') {
     return {};
@@ -104,6 +116,37 @@ function normalizeMonthDays(rawDays) {
         continue;
       }
       normalizedDay[safeUid] = status;
+    }
+
+    if (Object.keys(normalizedDay).length > 0) {
+      normalized[dateKey] = normalizedDay;
+    }
+  }
+
+  return normalized;
+}
+
+function normalizeMonthChanges(rawChanges) {
+  if (!rawChanges || typeof rawChanges !== 'object') {
+    return {};
+  }
+
+  const normalized = {};
+
+  for (const [dateKey, dayEntries] of Object.entries(rawChanges)) {
+    if (!isValidDateKey(dateKey) || !dayEntries || typeof dayEntries !== 'object') {
+      continue;
+    }
+
+    const normalizedDay = {};
+
+    for (const [uid, companionName] of Object.entries(dayEntries)) {
+      const safeUid = String(uid || '').trim();
+      const safeCompanionName = normalizeCompanionName(companionName);
+      if (!safeUid || !safeCompanionName) {
+        continue;
+      }
+      normalizedDay[safeUid] = safeCompanionName;
     }
 
     if (Object.keys(normalizedDay).length > 0) {
@@ -406,6 +449,7 @@ export function subscribeMonthDailyStatuses(monthKey, onData, onError) {
         onData({
           monthKey,
           days: {},
+          changes: {},
           updatedAt: null,
         });
         return;
@@ -415,6 +459,7 @@ export function subscribeMonthDailyStatuses(monthKey, onData, onError) {
       onData({
         monthKey: isValidMonthKey(raw.monthKey) ? raw.monthKey : monthKey,
         days: normalizeMonthDays(raw.days),
+        changes: normalizeMonthChanges(raw.changes),
         updatedAt: raw.updatedAt || null,
       });
     },
@@ -443,6 +488,7 @@ export async function loadMonthDailyStatuses(monthKey) {
     return {
       monthKey,
       days: {},
+      changes: {},
       updatedAt: null,
     };
   }
@@ -451,11 +497,12 @@ export async function loadMonthDailyStatuses(monthKey) {
   return {
     monthKey: isValidMonthKey(raw.monthKey) ? raw.monthKey : monthKey,
     days: normalizeMonthDays(raw.days),
+    changes: normalizeMonthChanges(raw.changes),
     updatedAt: raw.updatedAt || null,
   };
 }
 
-export async function saveUserDailyStatus({ monthKey, dateKey, uid, status }) {
+export async function saveUserDailyStatus({ monthKey, dateKey, uid, status, companionName = '' }) {
   if (!isValidMonthKey(monthKey)) {
     throw new Error('monthKey inválido. Usa YYYY-MM.');
   }
@@ -473,9 +520,14 @@ export async function saveUserDailyStatus({ monthKey, dateKey, uid, status }) {
     throw new Error('uid inválido.');
   }
 
-  const statusSet = new Set([DailyStatus.VOY, DailyStatus.NO_VOY, DailyStatus.VIALIA]);
+  const statusSet = new Set([DailyStatus.VOY, DailyStatus.NO_VOY, DailyStatus.VIALIA, DailyStatus.CAMBIO]);
   if (!statusSet.has(status)) {
     throw new Error('Estado diario inválido.');
+  }
+
+  const safeCompanionName = status === DailyStatus.CAMBIO ? normalizeCompanionName(companionName) : '';
+  if (status === DailyStatus.CAMBIO && !safeCompanionName) {
+    throw new Error('Nombre de compañero inválido.');
   }
 
   const db = initFirestore();
@@ -488,14 +540,25 @@ export async function saveUserDailyStatus({ monthKey, dateKey, uid, status }) {
   await runTransaction(db, async (tx) => {
     const monthSnap = await tx.get(monthRef);
     const currentDays = monthSnap.exists() ? normalizeMonthDays(monthSnap.data()?.days) : {};
-    const before = JSON.stringify(currentDays);
+    const currentChanges = monthSnap.exists() ? normalizeMonthChanges(monthSnap.data()?.changes) : {};
+    const before = JSON.stringify({
+      days: currentDays,
+      changes: currentChanges,
+    });
     const nextDays = { ...currentDays };
+    const nextChanges = { ...currentChanges };
     const nextDayMap = { ...(nextDays[dateKey] || {}) };
+    const nextChangeDayMap = { ...(nextChanges[dateKey] || {}) };
 
     if (status === DailyStatus.VOY) {
       delete nextDayMap[safeUid];
+      delete nextChangeDayMap[safeUid];
+    } else if (status === DailyStatus.CAMBIO) {
+      nextDayMap[safeUid] = status;
+      nextChangeDayMap[safeUid] = safeCompanionName;
     } else {
       nextDayMap[safeUid] = status;
+      delete nextChangeDayMap[safeUid];
     }
 
     if (Object.keys(nextDayMap).length === 0) {
@@ -504,7 +567,16 @@ export async function saveUserDailyStatus({ monthKey, dateKey, uid, status }) {
       nextDays[dateKey] = nextDayMap;
     }
 
-    const after = JSON.stringify(nextDays);
+    if (Object.keys(nextChangeDayMap).length === 0) {
+      delete nextChanges[dateKey];
+    } else {
+      nextChanges[dateKey] = nextChangeDayMap;
+    }
+
+    const after = JSON.stringify({
+      days: nextDays,
+      changes: nextChanges,
+    });
     if (before === after) {
       return;
     }
@@ -512,6 +584,7 @@ export async function saveUserDailyStatus({ monthKey, dateKey, uid, status }) {
     tx.set(monthRef, {
       monthKey,
       days: nextDays,
+      changes: nextChanges,
       updatedAt: serverTimestamp(),
     });
   });
@@ -556,24 +629,31 @@ export async function applyBulkUserDailyStatus({ monthKey, dateKeys, uid, status
     let localChanges = false;
     const monthSnap = await tx.get(monthRef);
     const currentDays = monthSnap.exists() ? normalizeMonthDays(monthSnap.data()?.days) : {};
+    const currentChanges = monthSnap.exists() ? normalizeMonthChanges(monthSnap.data()?.changes) : {};
     const nextDays = { ...currentDays };
+    const nextChanges = { ...currentChanges };
 
     for (const dateKey of uniqueDateKeys) {
       const currentDayMap = { ...(nextDays[dateKey] || {}) };
+      const currentChangeDayMap = { ...(nextChanges[dateKey] || {}) };
 
       if (status === DailyStatus.VOY) {
-        if (!Object.prototype.hasOwnProperty.call(currentDayMap, safeUid)) {
+        const hadStatus = Object.prototype.hasOwnProperty.call(currentDayMap, safeUid);
+        const hadChange = Object.prototype.hasOwnProperty.call(currentChangeDayMap, safeUid);
+        if (!hadStatus && !hadChange) {
           continue;
         }
 
         delete currentDayMap[safeUid];
+        delete currentChangeDayMap[safeUid];
         localChanges = true;
       } else {
-        if (currentDayMap[safeUid] === DailyStatus.NO_VOY) {
+        if (currentDayMap[safeUid] === DailyStatus.NO_VOY && !Object.prototype.hasOwnProperty.call(currentChangeDayMap, safeUid)) {
           continue;
         }
 
         currentDayMap[safeUid] = DailyStatus.NO_VOY;
+        delete currentChangeDayMap[safeUid];
         localChanges = true;
       }
 
@@ -581,6 +661,12 @@ export async function applyBulkUserDailyStatus({ monthKey, dateKeys, uid, status
         delete nextDays[dateKey];
       } else {
         nextDays[dateKey] = currentDayMap;
+      }
+
+      if (Object.keys(currentChangeDayMap).length === 0) {
+        delete nextChanges[dateKey];
+      } else {
+        nextChanges[dateKey] = currentChangeDayMap;
       }
     }
 
@@ -593,6 +679,7 @@ export async function applyBulkUserDailyStatus({ monthKey, dateKeys, uid, status
     if (monthSnap.exists()) {
       tx.update(monthRef, {
         days: nextDays,
+        changes: nextChanges,
         updatedAt: serverTimestamp(),
       });
       return;
@@ -601,6 +688,7 @@ export async function applyBulkUserDailyStatus({ monthKey, dateKeys, uid, status
     tx.set(monthRef, {
       monthKey,
       days: nextDays,
+      changes: nextChanges,
       updatedAt: serverTimestamp(),
     });
   });

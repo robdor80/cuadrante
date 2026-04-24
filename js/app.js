@@ -81,6 +81,7 @@ const state = {
   visibleMonthKey: getMonthKeyFromDate(getMonthStartDate(new Date())),
   selectedDateKey: '',
   dailyStatusByDate: {},
+  dailyChangesByDate: {},
   dailyStatusStatus: 'idle',
   dailyStatusError: '',
   isDailyStatusSaving: false,
@@ -90,6 +91,9 @@ const state = {
   dayModalOpen: false,
   dayModalDateKey: '',
   dayModalError: '',
+  dayModalCambioOpen: false,
+  dayModalCambioName: '',
+  dayModalCambioError: '',
   isMultiSelectMode: false,
   multiSelectedDateKeys: new Set(),
   isBulkApplying: false,
@@ -428,6 +432,9 @@ function closeDayModal({ skipRefresh = false } = {}) {
   state.dayModalOpen = false;
   state.dayModalDateKey = '';
   state.dayModalError = '';
+  state.dayModalCambioOpen = false;
+  state.dayModalCambioName = '';
+  state.dayModalCambioError = '';
   syncBodyModalOpenState();
 
   if (!skipRefresh) {
@@ -605,6 +612,9 @@ function openDayModal(dateKey) {
   state.dayModalDateKey = dateKey;
   state.dayModalOpen = true;
   state.dayModalError = '';
+  state.dayModalCambioOpen = false;
+  state.dayModalCambioName = '';
+  state.dayModalCambioError = '';
   syncBodyModalOpenState();
   refreshCurrentRoute();
 }
@@ -619,6 +629,7 @@ function resetCalendarState() {
   state.visibleMonthKey = getMonthKeyFromDate(state.visibleMonthDate);
   state.selectedDateKey = getDefaultSelectedDateKeyForVisibleMonth();
   state.dailyStatusByDate = {};
+  state.dailyChangesByDate = {};
   state.dailyStatusStatus = 'idle';
   state.dailyStatusError = '';
   state.isDailyStatusSaving = false;
@@ -1035,6 +1046,29 @@ function getStatusByUidForDate(dateKey) {
   return dayMap;
 }
 
+function getChangeByUidForDate(dateKey) {
+  const dayMap = state.dailyChangesByDate?.[dateKey];
+  if (!dayMap || typeof dayMap !== 'object') {
+    return {};
+  }
+  return dayMap;
+}
+
+function normalizeCompanionNameInput(value) {
+  const safe = String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (safe.length < 2 || safe.length > 40) {
+    return '';
+  }
+  return safe;
+}
+
+function hasCambioForDate(dateKey) {
+  const dayMap = getStatusByUidForDate(dateKey);
+  return Object.values(dayMap).some((status) => status === DailyStatus.CAMBIO);
+}
+
 function getWorkingCountForDate(dateKey) {
   const dayMap = getStatusByUidForDate(dateKey);
 
@@ -1071,11 +1105,20 @@ function getCurrentUserStatusForDate(dateKey) {
 
   const dayMap = getStatusByUidForDate(dateKey);
   const status = dayMap[state.authUser.uid];
-  if (status === DailyStatus.NO_VOY || status === DailyStatus.VIALIA) {
+  if (status === DailyStatus.NO_VOY || status === DailyStatus.VIALIA || status === DailyStatus.CAMBIO) {
     return status;
   }
 
   return DailyStatus.VOY;
+}
+
+function getCurrentUserChangeNameForDate(dateKey) {
+  if (!state.authUser || !dateKey) {
+    return '';
+  }
+
+  const dayChanges = getChangeByUidForDate(dateKey);
+  return String(dayChanges[state.authUser.uid] || '');
 }
 
 function getDailyStatusInfoHtml() {
@@ -1673,6 +1716,7 @@ function isVialiaAllowedForDate(dateKey) {
 
 function getDayBuckets(dateKey) {
   const dayMap = getStatusByUidForDate(dateKey);
+  const dayChangesMap = getChangeByUidForDate(dateKey);
   const buckets = {
     principal: [],
     noVoy: [],
@@ -1685,6 +1729,8 @@ function getDayBuckets(dateKey) {
       uid: user.uid,
       name: user.name || user.email || `Slot ${user.slotId}`,
       color: user.color || DEFAULT_PROFILE_COLOR,
+      changeName: dayChangesMap[user.uid] || '',
+      isCambio: status === DailyStatus.CAMBIO,
     };
 
     if (status === DailyStatus.NO_VOY) {
@@ -1713,7 +1759,11 @@ function buildModalUserList(users, emptyText) {
       (user) => `
         <li class="day-modal-user-item">
           <span class="day-modal-user-dot" style="--modal-user-color:${escapeHtml(user.color)}"></span>
-          <span class="day-modal-user-name">${escapeHtml(user.name)}</span>
+          <span class="day-modal-user-name">${
+            user.isCambio && user.changeName
+              ? `${escapeHtml(user.name)} <span class="day-modal-change-arrow">⇄</span> ${escapeHtml(user.changeName)}`
+              : escapeHtml(user.name)
+          }</span>
         </li>
       `,
     )
@@ -1734,6 +1784,47 @@ function buildDayModalHtml() {
   const vialiaAllowed = isVialiaAllowedForDate(dateKey);
   const dateLabel = formatSelectedDateLabel(dateKey);
   const buckets = getDayBuckets(dateKey);
+  const cambioChipLabel = currentUserStatus === DailyStatus.CAMBIO ? 'Cambio guardado' : 'Cambio';
+  const cambioPanelHtml = state.dayModalCambioOpen
+    ? `
+      <div class="day-modal-cambio-panel">
+        <form id="day-modal-cambio-form" class="day-modal-cambio-form">
+          <label class="day-modal-cambio-label" for="day-modal-cambio-input">Nombre del compañero</label>
+          <input
+            id="day-modal-cambio-input"
+            type="text"
+            maxlength="40"
+            value="${escapeHtml(state.dayModalCambioName)}"
+            placeholder="Ejemplo: Paco"
+            ${state.isDailyStatusSaving ? 'disabled' : ''}
+          />
+          <div class="day-modal-cambio-actions">
+            <button
+              id="day-modal-cambio-save-btn"
+              type="submit"
+              class="btn btn-secondary day-modal-cambio-save"
+              ${state.isDailyStatusSaving ? 'disabled' : ''}
+            >
+              Guardar cambio
+            </button>
+            <button
+              id="day-modal-cambio-cancel-btn"
+              type="button"
+              class="btn btn-secondary day-modal-cambio-cancel"
+              ${state.isDailyStatusSaving ? 'disabled' : ''}
+            >
+              Cancelar
+            </button>
+          </div>
+          ${
+            state.dayModalCambioError
+              ? `<p class="auth-message auth-message--error">${escapeHtml(state.dayModalCambioError)}</p>`
+              : ''
+          }
+        </form>
+      </div>
+    `
+    : '';
 
   return `
     <div id="day-modal-overlay" class="day-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="day-modal-title">
@@ -1762,7 +1853,17 @@ function buildDayModalHtml() {
         </section>
 
         <section class="day-modal-edit">
-          <p class="day-modal-edit-title">Tu estado para este día</p>
+          <div class="day-modal-edit-head">
+            <p class="day-modal-edit-title">Tu estado para este día</p>
+            <button
+              id="day-modal-cambio-toggle-btn"
+              type="button"
+              class="btn btn-secondary day-modal-cambio-toggle ${currentUserStatus === DailyStatus.CAMBIO ? 'is-active' : ''}"
+              ${state.isDailyStatusSaving ? 'disabled' : ''}
+            >
+              ${cambioChipLabel}
+            </button>
+          </div>
           <div class="day-modal-edit-actions">
             <button
               type="button"
@@ -1789,6 +1890,7 @@ function buildDayModalHtml() {
               VIALIA
             </button>
           </div>
+          ${cambioPanelHtml}
           ${
             !vialiaAllowed
               ? '<p class="muted day-modal-hint">Vialia solo está disponible en tardes laborables.</p>'
@@ -2145,15 +2247,20 @@ function renderCalendarGrid() {
       const dayMap = getStatusByUidForDate(dateKey);
       const isOwnNoVoy =
         Boolean(state.authUser?.uid) && dayMap[state.authUser.uid] === DailyStatus.NO_VOY;
+      const hasDayCambio = hasCambioForDate(dateKey);
       const outsideClass = isCurrentMonth ? '' : ' calendar-day--outside';
       const selectedClass =
         !state.isMultiSelectMode && state.selectedDateKey === dateKey && isEditable ? ' is-selected' : '';
       const multiSelectedClass = state.isMultiSelectMode && state.multiSelectedDateKeys.has(dateKey) ? ' is-multi-selected' : '';
       const ownNoVoyClass = isOwnNoVoy ? ' has-own-no-voy' : '';
+      const dayCambioClass = hasDayCambio ? ' has-day-cambio' : '';
       const workingCount = getWorkingCountForDate(dateKey);
       const availabilityClass = getAvailabilityClass(workingCount);
       const availabilityHtml = isWorkShift
         ? `<div class="calendar-availability-slot ${availabilityClass}" aria-label="Compañeros que trabajan">${workingCount}</div>`
+        : '';
+      const cambioMarkerHtml = hasDayCambio
+        ? '<span class="calendar-day-cambio-marker" aria-hidden="true"></span>'
         : '';
       const interactiveAttrs = isEditable
         ? 'role="button" tabindex="0"'
@@ -2162,7 +2269,7 @@ function renderCalendarGrid() {
 
       return `
         <article
-          class="calendar-day ${shiftToneClass}${outsideClass}${selectedClass}${multiSelectedClass}${ownNoVoyClass} ${
+          class="calendar-day ${shiftToneClass}${outsideClass}${selectedClass}${multiSelectedClass}${ownNoVoyClass}${dayCambioClass} ${
             dateKey === todayKey ? 'is-today' : ''
           }"
           title="${escapeHtml(dateKey)} | ciclo ${cycleDay}/12"
@@ -2177,6 +2284,7 @@ function renderCalendarGrid() {
             <span class="shift-code">${shiftCode}</span>
           </div>
           ${availabilityHtml}
+          ${cambioMarkerHtml}
         </article>
       `;
     })
@@ -2303,6 +2411,32 @@ function renderCalendarGrid() {
     });
   });
 
+  const cambioToggleButton = document.getElementById('day-modal-cambio-toggle-btn');
+  if (cambioToggleButton) {
+    cambioToggleButton.addEventListener('click', () => {
+      toggleDayModalCambioPanel();
+    });
+  }
+
+  const cambioCancelButton = document.getElementById('day-modal-cambio-cancel-btn');
+  if (cambioCancelButton) {
+    cambioCancelButton.addEventListener('click', () => {
+      closeDayModalCambioPanel();
+    });
+  }
+
+  const cambioInput = document.getElementById('day-modal-cambio-input');
+  if (cambioInput) {
+    cambioInput.addEventListener('input', (event) => {
+      handleDayModalCambioInput(event.target?.value || '');
+    });
+  }
+
+  const cambioForm = document.getElementById('day-modal-cambio-form');
+  if (cambioForm) {
+    cambioForm.addEventListener('submit', handleSaveDayModalCambio);
+  }
+
   bindMultiSelectRangeEvents();
   bindMultiSelectBarEvents();
   bindSettingsModalEvents();
@@ -2424,6 +2558,7 @@ function ensureMonthListenerForVisibleMonth({ preserveData = false } = {}) {
     state.dailyStatusError = '';
   } else {
     state.dailyStatusByDate = {};
+    state.dailyChangesByDate = {};
     state.dailyStatusStatus = 'loading';
     state.dailyStatusError = '';
   }
@@ -2438,6 +2573,7 @@ function ensureMonthListenerForVisibleMonth({ preserveData = false } = {}) {
         }
 
         state.dailyStatusByDate = payload?.days && typeof payload.days === 'object' ? payload.days : {};
+        state.dailyChangesByDate = payload?.changes && typeof payload.changes === 'object' ? payload.changes : {};
         state.dailyStatusStatus = 'ready';
         state.dailyStatusError = '';
         ensureSelectedDateKey();
@@ -2455,6 +2591,7 @@ function ensureMonthListenerForVisibleMonth({ preserveData = false } = {}) {
         }
 
         state.dailyStatusByDate = {};
+        state.dailyChangesByDate = {};
         state.dailyStatusStatus = 'error';
         state.dailyStatusError = 'No se pudieron escuchar los estados en tiempo real para este mes.';
         refreshCurrentRoute();
@@ -2467,6 +2604,7 @@ function ensureMonthListenerForVisibleMonth({ preserveData = false } = {}) {
     }
 
     state.dailyStatusByDate = {};
+    state.dailyChangesByDate = {};
     state.dailyStatusStatus = 'error';
     state.dailyStatusError = 'No se pudo iniciar el listener del mes visible.';
   }
@@ -2846,6 +2984,86 @@ function handleMonthNavigation(delta) {
   refreshCurrentRoute();
 }
 
+function toggleDayModalCambioPanel() {
+  if (!state.dayModalOpen || state.isDailyStatusSaving) {
+    return;
+  }
+
+  const nextOpen = !state.dayModalCambioOpen;
+  state.dayModalCambioOpen = nextOpen;
+  state.dayModalCambioError = '';
+  if (nextOpen) {
+    state.dayModalCambioName = getCurrentUserChangeNameForDate(state.dayModalDateKey || state.selectedDateKey);
+  } else {
+    state.dayModalCambioName = '';
+  }
+  refreshCurrentRoute();
+}
+
+function closeDayModalCambioPanel({ refresh = true } = {}) {
+  state.dayModalCambioOpen = false;
+  state.dayModalCambioName = '';
+  state.dayModalCambioError = '';
+  if (refresh) {
+    refreshCurrentRoute();
+  }
+}
+
+function handleDayModalCambioInput(value) {
+  state.dayModalCambioName = String(value || '');
+  state.dayModalCambioError = '';
+}
+
+async function handleSaveDayModalCambio(event) {
+  event.preventDefault();
+
+  if (state.isDailyStatusSaving || !state.authUser || !state.dayModalDateKey) {
+    return;
+  }
+
+  const safeCompanionName = normalizeCompanionNameInput(state.dayModalCambioName);
+  if (!safeCompanionName) {
+    state.dayModalCambioError = 'Introduce un nombre válido (2-40 caracteres).';
+    refreshCurrentRoute();
+    return;
+  }
+
+  const monthKey = getMonthKeyFromDateKey(state.dayModalDateKey);
+  if (!MONTH_KEY_REGEX.test(monthKey)) {
+    return;
+  }
+
+  state.isDailyStatusSaving = true;
+  state.dayModalError = '';
+  state.dayModalCambioError = '';
+  refreshCurrentRoute();
+
+  try {
+    await saveUserDailyStatus({
+      monthKey,
+      dateKey: state.dayModalDateKey,
+      uid: state.authUser.uid,
+      status: DailyStatus.CAMBIO,
+      companionName: safeCompanionName,
+    });
+    invalidateHistoryMonthCache(monthKey);
+    state.dayModalCambioOpen = false;
+    state.dayModalCambioName = '';
+    showToast({ type: 'success', message: 'Cambio guardado.' });
+  } catch (error) {
+    if (isFirestorePermissionDeniedError(error)) {
+      await handleAccessDeniedFromFirestore(state.authUser?.email);
+      return;
+    }
+
+    state.dayModalCambioError = 'No se pudo guardar el cambio. Inténtalo de nuevo.';
+    showToast({ type: 'error', message: 'No se pudo guardar el cambio.' });
+  } finally {
+    state.isDailyStatusSaving = false;
+    refreshCurrentRoute();
+  }
+}
+
 async function handleStatusUpdate(status, targetDateKey = state.dayModalDateKey || state.selectedDateKey) {
   if (state.isDailyStatusSaving) {
     return;
@@ -2872,6 +3090,9 @@ async function handleStatusUpdate(status, targetDateKey = state.dayModalDateKey 
 
   state.isDailyStatusSaving = true;
   state.dayModalError = '';
+  state.dayModalCambioOpen = false;
+  state.dayModalCambioName = '';
+  state.dayModalCambioError = '';
   refreshCurrentRoute();
 
   try {

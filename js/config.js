@@ -31,6 +31,7 @@ export const DailyStatus = Object.freeze({
   VOY: 'VOY',
   NO_VOY: 'NO_VOY',
   VIALIA: 'VIALIA',
+  CAMBIO: 'CAMBIO',
 });
 
 // Parte 1: marcador visual por dia para NO_VOY y VIALIA.

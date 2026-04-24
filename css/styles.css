@@ -1391,6 +1391,11 @@ h1 {
   color: #243f59;
 }
 
+.day-modal-change-arrow {
+  color: #6f5bbd;
+  font-weight: 760;
+}
+
 .day-modal-empty {
   margin: 0;
   font-size: 0.8rem;
@@ -1411,6 +1416,35 @@ h1 {
   color: #24425f;
 }
 
+.day-modal-edit-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.day-modal-cambio-toggle {
+  min-height: 31px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 0.73rem;
+  font-weight: 700;
+  border-color: rgba(151, 122, 202, 0.45);
+  background: rgba(242, 236, 253, 0.84);
+  color: #4b3a85;
+}
+
+.day-modal-cambio-toggle:hover:not(:disabled) {
+  background: rgba(233, 224, 251, 0.9);
+  border-color: rgba(134, 102, 194, 0.56);
+}
+
+.day-modal-cambio-toggle.is-active {
+  background: rgba(224, 209, 250, 0.92);
+  border-color: rgba(111, 84, 173, 0.62);
+  color: #402e7a;
+}
+
 .day-modal-edit-actions {
   margin-top: 8px;
   display: grid;
@@ -1420,6 +1454,54 @@ h1 {
   border-radius: 14px;
   background: #e9f0f7;
   border: 1px solid #cfdeec;
+}
+
+.day-modal-cambio-panel {
+  margin-top: 8px;
+  padding: 9px;
+  border-radius: 12px;
+  border: 1px dashed rgba(167, 149, 214, 0.52);
+  background: linear-gradient(180deg, rgba(249, 245, 255, 0.9) 0%, rgba(244, 238, 254, 0.82) 100%);
+}
+
+.day-modal-cambio-form {
+  display: grid;
+  gap: 7px;
+}
+
+.day-modal-cambio-label {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #3f4f62;
+}
+
+.day-modal-cambio-form input[type='text'] {
+  width: 100%;
+  border: 1px solid #cbbbe8;
+  border-radius: 11px;
+  padding: 8px 10px;
+  font-size: 0.84rem;
+  color: #223b54;
+  background: #ffffff;
+}
+
+.day-modal-cambio-form input[type='text']:focus {
+  outline: 2px solid rgba(114, 86, 189, 0.24);
+  border-color: #8162c6;
+}
+
+.day-modal-cambio-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.day-modal-cambio-save,
+.day-modal-cambio-cancel {
+  min-height: 33px;
+  padding: 7px 10px;
+  font-size: 0.78rem;
 }
 
 .day-modal-hint {
@@ -1701,6 +1783,20 @@ h1 {
   z-index: 0;
 }
 
+.calendar-day-cambio-marker {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(189, 166, 238, 0.92) 0%, rgba(154, 122, 221, 0.92) 100%);
+  border: 1px solid rgba(117, 82, 188, 0.48);
+  box-shadow: 0 1px 3px rgba(84, 65, 142, 0.24);
+  pointer-events: none;
+  z-index: 1;
+}
+
 .calendar-availability-slot.availability-high {
   color: #0f172a;
 }
@@ -1878,6 +1974,13 @@ h1 {
     height: 18px;
   }
 
+  .calendar-day-cambio-marker {
+    right: 5px;
+    bottom: 5px;
+    width: 7px;
+    height: 7px;
+  }
+
   .btn {
     font-size: 0.78rem;
     padding: 6px 9px;
@@ -1895,6 +1998,25 @@ h1 {
     max-height: calc(100vh - 16px);
     border-radius: 14px;
     padding: 10px;
+  }
+
+  .day-modal-edit-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .day-modal-cambio-toggle {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .day-modal-cambio-actions {
+    flex-direction: column;
+  }
+
+  .day-modal-cambio-save,
+  .day-modal-cambio-cancel {
+    width: 100%;
   }
 
   .settings-modal-overlay {
