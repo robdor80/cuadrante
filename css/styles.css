@@ -19,7 +19,7 @@
   --shift-manana-end: #cfdff8;
   --shift-tarde-end: #f7dcbc;
   --shift-noche-end: #f6cccc;
-  --multi-select-bar-space: 86px;
+  --multi-select-bar-space: 126px;
 }
 
 * {
@@ -761,6 +761,10 @@ h1 {
   height: var(--multi-select-bar-space);
 }
 
+.calendar-multi-spacer.is-expanded {
+  height: calc(var(--multi-select-bar-space) + 118px);
+}
+
 .calendar-header-row {
   display: block;
 }
@@ -906,6 +910,60 @@ h1 {
 .multi-select-bar__actions .btn {
   width: 100%;
   padding: 9px 10px;
+}
+
+.multi-select-bar__actions .btn.is-active {
+  border-color: rgba(111, 84, 173, 0.62);
+  background: rgba(224, 209, 250, 0.92);
+  color: #402e7a;
+}
+
+.multi-select-cambio-panel {
+  margin-top: 8px;
+  padding: 9px;
+  border-radius: 12px;
+  border: 1px dashed rgba(167, 149, 214, 0.52);
+  background: linear-gradient(180deg, rgba(249, 245, 255, 0.9) 0%, rgba(244, 238, 254, 0.82) 100%);
+}
+
+.multi-select-cambio-form {
+  display: grid;
+  gap: 7px;
+}
+
+.multi-select-cambio-label {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #3f4f62;
+}
+
+.multi-select-cambio-form input[type='text'] {
+  width: 100%;
+  border: 1px solid #cbbbe8;
+  border-radius: 11px;
+  padding: 8px 10px;
+  font-size: 0.84rem;
+  color: #223b54;
+  background: #ffffff;
+}
+
+.multi-select-cambio-form input[type='text']:focus {
+  outline: 2px solid rgba(114, 86, 189, 0.24);
+  border-color: #8162c6;
+}
+
+.multi-select-cambio-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn.btn-bulk-cambio-apply,
+.btn.btn-bulk-cambio-cancel {
+  min-height: 33px;
+  padding: 7px 10px;
+  font-size: 0.78rem;
 }
 
 .multi-select-bar__feedback {
@@ -1423,6 +1481,14 @@ h1 {
   gap: 10px;
 }
 
+.day-modal-edit-head-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .day-modal-cambio-toggle {
   min-height: 31px;
   padding: 5px 11px;
@@ -1443,6 +1509,22 @@ h1 {
   background: rgba(224, 209, 250, 0.92);
   border-color: rgba(111, 84, 173, 0.62);
   color: #402e7a;
+}
+
+.day-modal-cambio-clear {
+  min-height: 31px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 0.73rem;
+  font-weight: 700;
+  border-color: rgba(156, 173, 192, 0.55);
+  background: rgba(241, 246, 252, 0.92);
+  color: #33516d;
+}
+
+.day-modal-cambio-clear:hover:not(:disabled) {
+  background: rgba(233, 241, 250, 0.96);
+  border-color: rgba(135, 156, 178, 0.62);
 }
 
 .day-modal-edit-actions {
@@ -1897,6 +1979,34 @@ h1 {
     font-size: 0.7rem;
   }
 
+  .calendar-multi-spacer.is-expanded {
+    height: calc(var(--multi-select-bar-space) + 154px);
+  }
+
+  .multi-select-cambio-panel {
+    padding: 7px;
+  }
+
+  .multi-select-cambio-label {
+    font-size: 0.72rem;
+  }
+
+  .multi-select-cambio-form input[type='text'] {
+    font-size: 0.78rem;
+    padding: 7px 8px;
+  }
+
+  .multi-select-cambio-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn.btn-bulk-cambio-apply,
+  .btn.btn-bulk-cambio-cancel {
+    width: 100%;
+    font-size: 0.74rem;
+  }
+
   .multi-range-tool {
     padding: 7px 8px;
   }
@@ -2005,7 +2115,19 @@ h1 {
     flex-direction: column;
   }
 
+  .day-modal-edit-head-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
   .day-modal-cambio-toggle {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .day-modal-cambio-clear {
     width: 100%;
     justify-content: center;
   }
@@ -2155,6 +2277,10 @@ h1 {
 
   .multi-select-bar__feedback {
     font-size: 0.76rem;
+  }
+
+  .calendar-multi-spacer.is-expanded {
+    height: calc(var(--multi-select-bar-space) + 108px);
   }
 
   .multi-range-tool__inputs {

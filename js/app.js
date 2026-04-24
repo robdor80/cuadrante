@@ -9,7 +9,9 @@
   normalizeEmail,
 } from './config.js';
 import {
+  applyBulkUserCambio,
   applyBulkUserDailyStatus,
+  clearBulkUserCambio,
   createUserProfileWithAutoSlot,
   ensureSlotsInitialized,
   initFirebase,
@@ -97,6 +99,9 @@ const state = {
   isMultiSelectMode: false,
   multiSelectedDateKeys: new Set(),
   isBulkApplying: false,
+  bulkCambioPanelOpen: false,
+  bulkCambioName: '',
+  bulkCambioError: '',
   bulkActionFeedback: '',
   bulkActionFeedbackType: '',
   rangeStartDateKey: '',
@@ -400,6 +405,12 @@ function clearRangeSelectionState() {
   state.rangeFeedbackType = '';
 }
 
+function clearBulkCambioState() {
+  state.bulkCambioPanelOpen = false;
+  state.bulkCambioName = '';
+  state.bulkCambioError = '';
+}
+
 function clearMonthStatusListener() {
   if (typeof state.unsubscribeMonthStatuses === 'function') {
     state.unsubscribeMonthStatuses();
@@ -558,6 +569,7 @@ function toggleSettingsEditorActive() {
 
 function clearMultiSelection({ refresh = false, clearFeedback = true } = {}) {
   state.multiSelectedDateKeys = new Set();
+  clearBulkCambioState();
   if (clearFeedback) {
     state.bulkActionFeedback = '';
     state.bulkActionFeedbackType = '';
@@ -593,8 +605,13 @@ function toggleMultiSelectedDate(dateKey) {
     state.multiSelectedDateKeys.add(dateKey);
   }
 
+  if (state.multiSelectedDateKeys.size === 0) {
+    clearBulkCambioState();
+  }
+
   state.bulkActionFeedback = '';
   state.bulkActionFeedbackType = '';
+  state.bulkCambioError = '';
   state.rangeFeedback = '';
   state.rangeFeedbackType = '';
 }
@@ -634,6 +651,7 @@ function resetCalendarState() {
   state.dailyStatusError = '';
   state.isDailyStatusSaving = false;
   state.isBulkApplying = false;
+  clearBulkCambioState();
   state.bulkActionFeedback = '';
   state.bulkActionFeedbackType = '';
   clearRangeSelectionState();
@@ -1459,6 +1477,7 @@ function handleApplyRangeSelection() {
   state.rangeFeedbackType = 'success';
   state.bulkActionFeedback = '';
   state.bulkActionFeedbackType = '';
+  state.bulkCambioError = '';
   refreshCurrentRoute();
 }
 
@@ -1466,6 +1485,140 @@ function getVisibleSelectedDateKeys() {
   return Array.from(state.multiSelectedDateKeys)
     .filter((dateKey) => DATE_KEY_REGEX.test(dateKey) && isDateKeyInVisibleMonth(dateKey))
     .sort();
+}
+
+function isBulkCambioPanelVisible() {
+  return state.isMultiSelectMode && state.bulkCambioPanelOpen && state.multiSelectedDateKeys.size > 0;
+}
+
+function toggleBulkCambioPanel() {
+  if (!state.isMultiSelectMode || state.isBulkApplying) {
+    return;
+  }
+
+  if (getVisibleSelectedDateKeys().length === 0) {
+    return;
+  }
+
+  state.bulkCambioPanelOpen = !state.bulkCambioPanelOpen;
+  state.bulkCambioError = '';
+  if (!state.bulkCambioPanelOpen) {
+    state.bulkCambioName = '';
+  }
+  refreshCurrentRoute();
+}
+
+function closeBulkCambioPanel({ refresh = true } = {}) {
+  clearBulkCambioState();
+  if (refresh) {
+    refreshCurrentRoute();
+  }
+}
+
+function handleBulkCambioNameInput(value) {
+  state.bulkCambioName = String(value || '');
+  state.bulkCambioError = '';
+}
+
+async function handleBulkCambioAction(event) {
+  event.preventDefault();
+  if (!state.isMultiSelectMode || state.isBulkApplying || !state.authUser) {
+    return;
+  }
+
+  const selectedDateKeys = getVisibleSelectedDateKeys();
+  if (!selectedDateKeys.length) {
+    return;
+  }
+
+  const safeCompanionName = normalizeCompanionNameInput(state.bulkCambioName);
+  if (!safeCompanionName) {
+    state.bulkCambioError = 'Introduce un nombre válido (2-40 caracteres).';
+    refreshCurrentRoute();
+    return;
+  }
+
+  const targetMonthKey = getMonthKeyFromDate(state.visibleMonthDate);
+  state.isBulkApplying = true;
+  state.bulkActionFeedback = '';
+  state.bulkActionFeedbackType = '';
+  state.bulkCambioError = '';
+  refreshCurrentRoute();
+
+  try {
+    await applyBulkUserCambio({
+      monthKey: targetMonthKey,
+      dateKeys: selectedDateKeys,
+      uid: state.authUser.uid,
+      companionName: safeCompanionName,
+    });
+
+    invalidateHistoryMonthCache(targetMonthKey);
+    clearMultiSelection({ refresh: false, clearFeedback: false });
+    state.bulkActionFeedback = 'Aplicado: CAMBIO.';
+    state.bulkActionFeedbackType = 'success';
+    showToast({ type: 'success', message: 'Cambio aplicado.' });
+  } catch (error) {
+    if (isFirestorePermissionDeniedError(error)) {
+      await handleAccessDeniedFromFirestore(state.authUser?.email);
+      return;
+    }
+
+    state.bulkActionFeedback = 'No se pudo aplicar.';
+    state.bulkActionFeedbackType = 'error';
+    state.bulkCambioError = 'No se pudo aplicar el cambio.';
+    showToast({ type: 'error', message: 'No se pudo aplicar el cambio.' });
+  } finally {
+    state.isBulkApplying = false;
+    refreshCurrentRoute();
+  }
+}
+
+async function handleBulkClearCambioAction() {
+  if (!state.isMultiSelectMode || state.isBulkApplying || !state.authUser) {
+    return;
+  }
+
+  const selectedDateKeys = getVisibleSelectedDateKeys();
+  if (!selectedDateKeys.length) {
+    return;
+  }
+
+  const targetMonthKey = getMonthKeyFromDate(state.visibleMonthDate);
+  state.isBulkApplying = true;
+  state.bulkActionFeedback = '';
+  state.bulkActionFeedbackType = '';
+  state.bulkCambioError = '';
+  refreshCurrentRoute();
+
+  try {
+    const result = await clearBulkUserCambio({
+      monthKey: targetMonthKey,
+      dateKeys: selectedDateKeys,
+      uid: state.authUser.uid,
+    });
+
+    invalidateHistoryMonthCache(targetMonthKey);
+    clearMultiSelection({ refresh: false, clearFeedback: false });
+    state.bulkActionFeedback = result.changed ? 'Aplicado: Quitar cambio.' : 'Sin cambios para quitar.';
+    state.bulkActionFeedbackType = 'success';
+    showToast({
+      type: 'success',
+      message: result.changed ? 'Cambio quitado.' : 'No había cambios para quitar.',
+    });
+  } catch (error) {
+    if (isFirestorePermissionDeniedError(error)) {
+      await handleAccessDeniedFromFirestore(state.authUser?.email);
+      return;
+    }
+
+    state.bulkActionFeedback = 'No se pudo aplicar.';
+    state.bulkActionFeedbackType = 'error';
+    showToast({ type: 'error', message: 'No se pudo quitar el cambio.' });
+  } finally {
+    state.isBulkApplying = false;
+    refreshCurrentRoute();
+  }
 }
 
 async function handleBulkAction(action) {
@@ -1531,6 +1684,48 @@ function buildMultiSelectBarHtml() {
   const hasSelection = state.multiSelectedDateKeys.size > 0;
   const disabledAttr = hasSelection && !state.isBulkApplying ? '' : 'disabled';
   const exitDisabledAttr = state.isBulkApplying ? 'disabled' : '';
+  const cambioPanelDisabledAttr = state.isBulkApplying ? 'disabled' : '';
+  const bulkCambioPanelVisible = isBulkCambioPanelVisible();
+  const bulkCambioPanelHtml = bulkCambioPanelVisible
+    ? `
+      <div class="multi-select-cambio-panel">
+        <form id="bulk-cambio-form" class="multi-select-cambio-form">
+          <label class="multi-select-cambio-label" for="bulk-cambio-name-input">Nombre del compañero</label>
+          <input
+            id="bulk-cambio-name-input"
+            type="text"
+            maxlength="40"
+            value="${escapeHtml(state.bulkCambioName)}"
+            placeholder="Ejemplo: Paco"
+            ${cambioPanelDisabledAttr}
+          />
+          <div class="multi-select-cambio-actions">
+            <button
+              id="bulk-cambio-apply-btn"
+              type="submit"
+              class="btn btn-secondary btn-bulk-cambio-apply"
+              ${cambioPanelDisabledAttr}
+            >
+              ${state.isBulkApplying ? 'Aplicando...' : 'Aplicar cambio'}
+            </button>
+            <button
+              id="bulk-cambio-cancel-btn"
+              type="button"
+              class="btn btn-secondary btn-bulk-cambio-cancel"
+              ${cambioPanelDisabledAttr}
+            >
+              Cancelar
+            </button>
+          </div>
+          ${
+            state.bulkCambioError
+              ? `<p class="auth-message auth-message--error">${escapeHtml(state.bulkCambioError)}</p>`
+              : ''
+          }
+        </form>
+      </div>
+    `
+    : '';
   const feedbackHtml = state.bulkActionFeedback
     ? `<p class="multi-select-bar__feedback ${
         state.bulkActionFeedbackType === 'error' ? 'is-error' : 'is-success'
@@ -1570,7 +1765,24 @@ function buildMultiSelectBarHtml() {
             >
               NO VOY
             </button>
+            <button
+              id="bulk-cambio-toggle-btn"
+              type="button"
+              class="btn btn-secondary ${bulkCambioPanelVisible ? 'is-active' : ''}"
+              ${disabledAttr}
+            >
+              Cambio
+            </button>
+            <button
+              id="bulk-cambio-clear-btn"
+              type="button"
+              class="btn btn-secondary"
+              ${disabledAttr}
+            >
+              Quitar cambio
+            </button>
           </div>
+          ${bulkCambioPanelHtml}
           ${feedbackHtml}
         </div>
       </div>
@@ -1658,6 +1870,39 @@ function bindMultiSelectBarEvents() {
     bulkNoVoyButton.addEventListener('click', () => {
       handleBulkAction(DailyStatus.NO_VOY);
     });
+  }
+
+  const bulkCambioToggleButton = document.getElementById('bulk-cambio-toggle-btn');
+  if (bulkCambioToggleButton) {
+    bulkCambioToggleButton.addEventListener('click', () => {
+      toggleBulkCambioPanel();
+    });
+  }
+
+  const bulkCambioClearButton = document.getElementById('bulk-cambio-clear-btn');
+  if (bulkCambioClearButton) {
+    bulkCambioClearButton.addEventListener('click', () => {
+      handleBulkClearCambioAction();
+    });
+  }
+
+  const bulkCambioCancelButton = document.getElementById('bulk-cambio-cancel-btn');
+  if (bulkCambioCancelButton) {
+    bulkCambioCancelButton.addEventListener('click', () => {
+      closeBulkCambioPanel();
+    });
+  }
+
+  const bulkCambioInput = document.getElementById('bulk-cambio-name-input');
+  if (bulkCambioInput) {
+    bulkCambioInput.addEventListener('input', (event) => {
+      handleBulkCambioNameInput(event.target?.value || '');
+    });
+  }
+
+  const bulkCambioForm = document.getElementById('bulk-cambio-form');
+  if (bulkCambioForm) {
+    bulkCambioForm.addEventListener('submit', handleBulkCambioAction);
   }
 }
 
@@ -1855,14 +2100,30 @@ function buildDayModalHtml() {
         <section class="day-modal-edit">
           <div class="day-modal-edit-head">
             <p class="day-modal-edit-title">Tu estado para este día</p>
-            <button
-              id="day-modal-cambio-toggle-btn"
-              type="button"
-              class="btn btn-secondary day-modal-cambio-toggle ${currentUserStatus === DailyStatus.CAMBIO ? 'is-active' : ''}"
-              ${state.isDailyStatusSaving ? 'disabled' : ''}
-            >
-              ${cambioChipLabel}
-            </button>
+            <div class="day-modal-edit-head-actions">
+              <button
+                id="day-modal-cambio-toggle-btn"
+                type="button"
+                class="btn btn-secondary day-modal-cambio-toggle ${currentUserStatus === DailyStatus.CAMBIO ? 'is-active' : ''}"
+                ${state.isDailyStatusSaving ? 'disabled' : ''}
+              >
+                ${cambioChipLabel}
+              </button>
+              ${
+                currentUserStatus === DailyStatus.CAMBIO
+                  ? `
+                    <button
+                      id="day-modal-cambio-clear-btn"
+                      type="button"
+                      class="btn btn-secondary day-modal-cambio-clear"
+                      ${state.isDailyStatusSaving ? 'disabled' : ''}
+                    >
+                      Quitar cambio
+                    </button>
+                  `
+                  : ''
+              }
+            </div>
           </div>
           <div class="day-modal-edit-actions">
             <button
@@ -2299,8 +2560,9 @@ function renderCalendarGrid() {
   const settingsUserEditorHtml = buildSettingsUserEditorModalHtml();
   const multiSelectRangeHtml = buildMultiSelectRangeHtml();
   const multiSelectBarHtml = buildMultiSelectBarHtml();
+  const bulkCambioPanelVisible = isBulkCambioPanelVisible();
   const multiSelectSpacerHtml = state.isMultiSelectMode
-    ? '<div class="calendar-multi-spacer" aria-hidden="true"></div>'
+    ? `<div class="calendar-multi-spacer ${bulkCambioPanelVisible ? 'is-expanded' : ''}" aria-hidden="true"></div>`
     : '';
   const multiModeInfo = state.isMultiSelectMode
     ? '<p class="calendar-selection-indicator muted">Modo selecci\u00f3n activo</p>'
@@ -2415,6 +2677,13 @@ function renderCalendarGrid() {
   if (cambioToggleButton) {
     cambioToggleButton.addEventListener('click', () => {
       toggleDayModalCambioPanel();
+    });
+  }
+
+  const cambioClearButton = document.getElementById('day-modal-cambio-clear-btn');
+  if (cambioClearButton) {
+    cambioClearButton.addEventListener('click', () => {
+      handleStatusUpdate(DailyStatus.VOY, state.dayModalDateKey);
     });
   }
 

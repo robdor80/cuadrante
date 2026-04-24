@@ -590,6 +590,196 @@ export async function saveUserDailyStatus({ monthKey, dateKey, uid, status, comp
   });
 }
 
+export async function applyBulkUserCambio({ monthKey, dateKeys, uid, companionName }) {
+  if (!isValidMonthKey(monthKey)) {
+    throw new Error('monthKey inválido. Usa YYYY-MM.');
+  }
+
+  const safeUid = String(uid || '').trim();
+  if (!safeUid) {
+    throw new Error('uid inválido.');
+  }
+
+  const safeCompanionName = normalizeCompanionName(companionName);
+  if (!safeCompanionName) {
+    throw new Error('Nombre de compañero inválido.');
+  }
+
+  const uniqueDateKeys = Array.from(
+    new Set(
+      (Array.isArray(dateKeys) ? dateKeys : [])
+        .map((value) => String(value || '').trim())
+        .filter((value) => isValidDateKey(value) && value.startsWith(`${monthKey}-`)),
+    ),
+  );
+
+  if (uniqueDateKeys.length === 0) {
+    return { changed: false };
+  }
+
+  const db = initFirestore();
+  if (!db) {
+    throw new Error('Firestore no configurado.');
+  }
+
+  const monthRef = doc(db, DAILY_STATUS_MONTHS_COLLECTION, monthKey);
+  let hasChanges = false;
+
+  await runTransaction(db, async (tx) => {
+    let localChanges = false;
+    const monthSnap = await tx.get(monthRef);
+    const currentDays = monthSnap.exists() ? normalizeMonthDays(monthSnap.data()?.days) : {};
+    const currentChanges = monthSnap.exists() ? normalizeMonthChanges(monthSnap.data()?.changes) : {};
+    const nextDays = { ...currentDays };
+    const nextChanges = { ...currentChanges };
+
+    for (const dateKey of uniqueDateKeys) {
+      const currentDayMap = { ...(nextDays[dateKey] || {}) };
+      const currentChangeDayMap = { ...(nextChanges[dateKey] || {}) };
+
+      const hasSameCambio =
+        currentDayMap[safeUid] === DailyStatus.CAMBIO && currentChangeDayMap[safeUid] === safeCompanionName;
+
+      if (hasSameCambio) {
+        continue;
+      }
+
+      currentDayMap[safeUid] = DailyStatus.CAMBIO;
+      currentChangeDayMap[safeUid] = safeCompanionName;
+      localChanges = true;
+
+      if (Object.keys(currentDayMap).length === 0) {
+        delete nextDays[dateKey];
+      } else {
+        nextDays[dateKey] = currentDayMap;
+      }
+
+      if (Object.keys(currentChangeDayMap).length === 0) {
+        delete nextChanges[dateKey];
+      } else {
+        nextChanges[dateKey] = currentChangeDayMap;
+      }
+    }
+
+    if (!localChanges) {
+      return;
+    }
+
+    hasChanges = true;
+
+    if (monthSnap.exists()) {
+      tx.update(monthRef, {
+        days: nextDays,
+        changes: nextChanges,
+        updatedAt: serverTimestamp(),
+      });
+      return;
+    }
+
+    tx.set(monthRef, {
+      monthKey,
+      days: nextDays,
+      changes: nextChanges,
+      updatedAt: serverTimestamp(),
+    });
+  });
+
+  return { changed: hasChanges };
+}
+
+export async function clearBulkUserCambio({ monthKey, dateKeys, uid }) {
+  if (!isValidMonthKey(monthKey)) {
+    throw new Error('monthKey inválido. Usa YYYY-MM.');
+  }
+
+  const safeUid = String(uid || '').trim();
+  if (!safeUid) {
+    throw new Error('uid inválido.');
+  }
+
+  const uniqueDateKeys = Array.from(
+    new Set(
+      (Array.isArray(dateKeys) ? dateKeys : [])
+        .map((value) => String(value || '').trim())
+        .filter((value) => isValidDateKey(value) && value.startsWith(`${monthKey}-`)),
+    ),
+  );
+
+  if (uniqueDateKeys.length === 0) {
+    return { changed: false };
+  }
+
+  const db = initFirestore();
+  if (!db) {
+    throw new Error('Firestore no configurado.');
+  }
+
+  const monthRef = doc(db, DAILY_STATUS_MONTHS_COLLECTION, monthKey);
+  let hasChanges = false;
+
+  await runTransaction(db, async (tx) => {
+    let localChanges = false;
+    const monthSnap = await tx.get(monthRef);
+    const currentDays = monthSnap.exists() ? normalizeMonthDays(monthSnap.data()?.days) : {};
+    const currentChanges = monthSnap.exists() ? normalizeMonthChanges(monthSnap.data()?.changes) : {};
+    const nextDays = { ...currentDays };
+    const nextChanges = { ...currentChanges };
+
+    for (const dateKey of uniqueDateKeys) {
+      const currentDayMap = { ...(nextDays[dateKey] || {}) };
+      const currentChangeDayMap = { ...(nextChanges[dateKey] || {}) };
+      const currentStatus = currentDayMap[safeUid];
+      const hasOrphanChange = Object.prototype.hasOwnProperty.call(currentChangeDayMap, safeUid);
+
+      if (currentStatus !== DailyStatus.CAMBIO && !hasOrphanChange) {
+        continue;
+      }
+
+      if (currentStatus === DailyStatus.CAMBIO) {
+        delete currentDayMap[safeUid];
+      }
+      delete currentChangeDayMap[safeUid];
+      localChanges = true;
+
+      if (Object.keys(currentDayMap).length === 0) {
+        delete nextDays[dateKey];
+      } else {
+        nextDays[dateKey] = currentDayMap;
+      }
+
+      if (Object.keys(currentChangeDayMap).length === 0) {
+        delete nextChanges[dateKey];
+      } else {
+        nextChanges[dateKey] = currentChangeDayMap;
+      }
+    }
+
+    if (!localChanges) {
+      return;
+    }
+
+    hasChanges = true;
+
+    if (monthSnap.exists()) {
+      tx.update(monthRef, {
+        days: nextDays,
+        changes: nextChanges,
+        updatedAt: serverTimestamp(),
+      });
+      return;
+    }
+
+    tx.set(monthRef, {
+      monthKey,
+      days: nextDays,
+      changes: nextChanges,
+      updatedAt: serverTimestamp(),
+    });
+  });
+
+  return { changed: hasChanges };
+}
+
 export async function applyBulkUserDailyStatus({ monthKey, dateKeys, uid, status }) {
   if (!isValidMonthKey(monthKey)) {
     throw new Error('monthKey inválido. Usa YYYY-MM.');
