@@ -448,8 +448,20 @@ h1 {
   gap: 8px;
 }
 
+.history-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .history-header h2 {
   margin: 0;
+}
+
+.history-home-btn {
+  flex: 0 0 auto;
+  min-width: 74px;
 }
 
 .history-header-hint {

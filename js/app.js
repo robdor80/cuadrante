@@ -371,6 +371,12 @@ function getDefaultSelectedDateKeyForVisibleMonth() {
   return `${year}-${month}-01`;
 }
 
+function setCalendarToCurrentMonth() {
+  state.visibleMonthDate = getMonthStartDate(new Date());
+  state.visibleMonthKey = getMonthKeyFromDate(state.visibleMonthDate);
+  state.selectedDateKey = getDefaultSelectedDateKeyForVisibleMonth();
+}
+
 function ensureSelectedDateKey() {
   if (!isDateKeyInVisibleMonth(state.selectedDateKey)) {
     state.selectedDateKey = getDefaultSelectedDateKeyForVisibleMonth();
@@ -642,9 +648,7 @@ function resetCalendarState() {
   closeSettingsModal({ skipRefresh: true });
   setMultiSelectMode(false);
   state.headerMobileMenuOpen = false;
-  state.visibleMonthDate = getMonthStartDate(new Date());
-  state.visibleMonthKey = getMonthKeyFromDate(state.visibleMonthDate);
-  state.selectedDateKey = getDefaultSelectedDateKeyForVisibleMonth();
+  setCalendarToCurrentMonth();
   state.dailyStatusByDate = {};
   state.dailyChangesByDate = {};
   state.dailyStatusStatus = 'idle';
@@ -1279,6 +1283,19 @@ function handleHistoryPeriodChange(periodKey) {
   refreshCurrentRoute();
 }
 
+function handleHistoryHomeNavigation() {
+  closeDayModal({ skipRefresh: true });
+  clearMultiSelection({ refresh: false });
+  clearRangeSelectionState();
+  setCalendarToCurrentMonth();
+  state.dailyStatusByDate = {};
+  state.dailyChangesByDate = {};
+  state.dailyStatusStatus = 'idle';
+  state.dailyStatusError = '';
+  state.headerMobileMenuOpen = false;
+  goTo(ROUTES.CALENDAR);
+}
+
 function buildHistoryFiltersHtml() {
   return `
     <div class="history-filters" role="group" aria-label="Filtrar periodo de historial">
@@ -1362,6 +1379,11 @@ function buildHistoryContentHtml() {
 }
 
 function bindHistoryEvents() {
+  const homeButton = document.getElementById('history-home-btn');
+  if (homeButton) {
+    homeButton.addEventListener('click', handleHistoryHomeNavigation);
+  }
+
   const periodButtons = document.querySelectorAll('[data-history-period]');
   periodButtons.forEach((button) => {
     button.addEventListener('click', () => {
@@ -2981,7 +3003,17 @@ function renderHistory() {
   appRoot.innerHTML = `
     <section class="panel history-panel">
       <header class="history-header">
-        <h2>Historial</h2>
+        <div class="history-header-top">
+          <h2>Historial</h2>
+          <button
+            id="history-home-btn"
+            type="button"
+            class="btn btn-secondary btn-header history-home-btn"
+            aria-label="Volver al calendario principal"
+          >
+            Home
+          </button>
+        </div>
         <p class="muted history-header-hint">Solo cuentan fechas anteriores a hoy.</p>
         ${buildHistoryFiltersHtml()}
       </header>
